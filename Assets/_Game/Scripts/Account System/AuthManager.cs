@@ -30,8 +30,8 @@ public class AuthManager : MonoBehaviour
     public TextMeshProUGUI messageText;
 
     // ???ng d?n k?t n?i tr?c ti?p t?i c?ng HTTP th??ng, lo?i b? hoàn toàn l?i ng?t k?t n?i HTTPS
-    private string baseURL = "http://localhost:5231/api/auth/";
-
+    private string baseURL = "https://rejoin-synopses-backfire.ngrok-free.dev";
+     
     private void Start()
     {
         SwitchToLoginPanel();
