@@ -2,6 +2,8 @@ public struct NoteRuntimeData
 {
     public int noteId;
     public int laneIndex;
+    public NoteType noteType;
+    public NoteVisualConfig visualConfig;
 
     public float hitTime;
     public float duration;
@@ -13,4 +15,6 @@ public struct NoteRuntimeData
     public float touchRadius;
 
     public FlickDirection flickDirection;
+    public int[] slidePath;
+    public float laneSpacing;
 }

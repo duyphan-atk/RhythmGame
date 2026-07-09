@@ -5,6 +5,7 @@ public class ChartVisualizer : MonoBehaviour
     [Header("Visual")]
     [SerializeField] private GameObject notePrefab;
     [SerializeField] private Transform noteParent;
+    [SerializeField] private NoteVisualConfig visualConfig;
     private ChartData currentChart;
 
     [Header("Layout")]
@@ -50,6 +51,7 @@ public class ChartVisualizer : MonoBehaviour
             }
 
             previewNote.Initialize(i, note, this);
+            ApplyPreviewVisual(noteObject, note.type);
         }
     }
 
@@ -108,4 +110,25 @@ public class ChartVisualizer : MonoBehaviour
     {
         return currentChart;
     }
-}
+
+    private void ApplyPreviewVisual(GameObject noteObject, NoteType noteType)
+    {
+        if (visualConfig == null || noteObject == null)
+            return;
+
+        NoteVisualStyle style = visualConfig.GetStyle(noteType);
+
+        SpriteRenderer spriteRenderer = noteObject.GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            if (style.sprite != null)
+                spriteRenderer.sprite = style.sprite;
+
+            spriteRenderer.color = style.color;
+        }
+
+        Vector3 previewScale = style.previewScale;
+        if (previewScale.x > 0f && previewScale.y > 0f && previewScale.z > 0f)
+            noteObject.transform.localScale = previewScale;
+    }
+}

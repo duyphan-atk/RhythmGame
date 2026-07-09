@@ -16,6 +16,7 @@ public abstract class NoteBase : MonoBehaviour
 
     [Header("Visual")]
     [SerializeField] protected Image noteImage;
+    [SerializeField] protected NoteVisualConfig visualConfig;
 
     [SerializeField] private HitJudgment lastJudgment = HitJudgment.None;
     [SerializeField] private float lastDeltaMs;
@@ -73,8 +74,12 @@ public abstract class NoteBase : MonoBehaviour
 
     public virtual void Initialize(NoteRuntimeData data)
     {
+        if (visualConfig == null)
+            visualConfig = data.visualConfig;
+
         noteId = data.noteId;
         laneIndex = data.laneIndex;
+        noteType = data.noteType;
         hitTime = data.hitTime;
         duration = data.duration;
         touchRadius = data.touchRadius;
@@ -196,6 +201,32 @@ public abstract class NoteBase : MonoBehaviour
 
     protected virtual void ResetVisual()
     {
-        SetColor(Color.white);
+        ApplyVisualStyle();
+    }
+
+    protected void ApplyVisualStyle()
+    {
+        if (noteImage == null)
+            noteImage = GetComponent<Image>();
+
+        if (visualConfig == null || noteImage == null)
+        {
+            SetColor(Color.white);
+            return;
+        }
+
+        NoteVisualStyle style = visualConfig.GetStyle(noteType);
+
+        if (style.sprite != null)
+            noteImage.sprite = style.sprite;
+
+        noteImage.color = style.color;
+        noteImage.preserveAspect = style.preserveAspect;
+
+        if (rectTransform == null)
+            rectTransform = GetComponent<RectTransform>();
+
+        if (rectTransform != null && style.uiSize.x > 0f && style.uiSize.y > 0f)
+            rectTransform.sizeDelta = style.uiSize;
     }
 }

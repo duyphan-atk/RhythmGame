@@ -96,6 +96,7 @@ MonoBehaviour:
   duration: 0
   touchRadius: 120
   noteImage: {fileID: 0}
+  visualConfig: {fileID: 11400000, guid: 0f6d47c635af4c048b0f4c38a20b5874, type: 2}
 --- !u!114 &2145308942427728032
 MonoBehaviour:
   m_ObjectHideFlags: 0
