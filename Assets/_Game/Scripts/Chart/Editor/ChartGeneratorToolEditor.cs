@@ -1,10 +1,13 @@
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
+using Dypsloom.RhythmTimeline.Core;
 
 [CustomEditor(typeof(ChartGeneratorTool))]
 public class ChartGeneratorToolEditor : Editor
 {
+    private static RhythmTimelineAsset _selectedTimeline;
+
     // Cache danh sách SongData để không load lại mỗi frame
     private SongData[] _allSongs;
     private string[]   _songDisplayNames;
@@ -61,7 +64,7 @@ public class ChartGeneratorToolEditor : Editor
                     EditorUtility.SetDirty(tool);
 
                     // Đồng bộ ChartNoteSpawner.chartFileName để Play mode load đúng JSON.
-                    ChartNoteSpawner spawner = FindObjectOfType<ChartNoteSpawner>();
+                    ChartNoteSpawner spawner = FindFirstObjectByType<ChartNoteSpawner>();
                     if (spawner != null)
                     {
                         Undo.RecordObject(spawner, "Select Song - Sync Spawner");
@@ -98,6 +101,48 @@ public class ChartGeneratorToolEditor : Editor
         if (GUILayout.Button("Generate And Save Chart")) tool.GenerateAndSave();
         if (GUILayout.Button("Load Preview Chart"))      tool.LoadAndPreview();
         if (GUILayout.Button("Save Edited Chart"))       tool.SaveEditedChart();
+
+        GUILayout.Space(10);
+        EditorGUILayout.LabelField("── Visual Test ─────────────────────", EditorStyles.boldLabel);
+
+        if (GUILayout.Button("Preview Note Visual Test"))
+            tool.PreviewNoteVisualTestChart();
+
+        if (GUILayout.Button("Save Note Visual Test Chart"))
+            tool.SaveNoteVisualTestChart();
+
+        if (GUILayout.Button("Prepare Note Visual Runtime Test"))
+        {
+            tool.PrepareNoteVisualRuntimeTest();
+
+            ChartNoteSpawner spawner = FindFirstObjectByType<ChartNoteSpawner>();
+            if (spawner != null)
+                EditorUtility.SetDirty(spawner);
+        }
+
+        GUILayout.Space(10);
+        EditorGUILayout.LabelField("── Timeline Bridge ─────────────────", EditorStyles.boldLabel);
+
+        _selectedTimeline = (RhythmTimelineAsset)EditorGUILayout.ObjectField(
+            "Timeline Asset",
+            _selectedTimeline,
+            typeof(RhythmTimelineAsset),
+            false);
+
+        if (_selectedTimeline == null && Selection.activeObject is RhythmTimelineAsset selectedAsset)
+            _selectedTimeline = selectedAsset;
+
+        if (GUILayout.Button("Create Timeline From Preview"))
+            CreateTimelineFromPreview(tool);
+
+        if (GUILayout.Button("Create Timeline From Saved Chart"))
+            CreateTimelineFromSavedChart(tool);
+
+        if (GUILayout.Button("Export Timeline To JSON"))
+            ExportTimelineToJson(tool, prepareRuntime: false);
+
+        if (GUILayout.Button("Export Timeline And Prepare Runtime"))
+            ExportTimelineToJson(tool, prepareRuntime: true);
     }
 
     // ─── Private ─────────────────────────────────────────────────────────────
@@ -126,6 +171,100 @@ public class ChartGeneratorToolEditor : Editor
         }
 
         _selectedIndex = 0;
+    }
+
+    private void CreateTimelineFromPreview(ChartGeneratorTool tool)
+    {
+        ChartData chart = tool.GetCurrentPreviewChart();
+        if (chart == null)
+        {
+            EditorUtility.DisplayDialog(
+                "No Preview Chart",
+                "Load, generate, or preview a chart before creating a timeline.",
+                "OK");
+            return;
+        }
+
+        CreateTimelineAsset(tool, chart);
+    }
+
+    private void CreateTimelineFromSavedChart(ChartGeneratorTool tool)
+    {
+        if (!BeatmapParser.TryLoadChart(tool.SaveFileName, out ChartData chart))
+        {
+            EditorUtility.DisplayDialog(
+                "Cannot Load Chart",
+                $"Could not load saved chart '{tool.SaveFileName}'.",
+                "OK");
+            return;
+        }
+
+        CreateTimelineAsset(tool, chart);
+    }
+
+    private void CreateTimelineAsset(ChartGeneratorTool tool, ChartData chart)
+    {
+        string safeName = string.IsNullOrWhiteSpace(chart.songName)
+            ? tool.SaveFileName
+            : chart.songName.Replace(' ', '_');
+
+        string path = EditorUtility.SaveFilePanelInProject(
+            "Create Rhythm Timeline From Chart",
+            $"{safeName}_Timeline",
+            "asset",
+            "Create a Dypsloom Rhythm Timeline asset from the current chart.",
+            "Assets/_Game/Data/Timelines");
+
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        RhythmTimelineAsset timeline = ChartTimelineConverter.CreateTimelineFromChart(
+            chart,
+            path,
+            tool.CurrentAudioClip);
+
+        if (timeline != null)
+        {
+            _selectedTimeline = timeline;
+            Selection.activeObject = timeline;
+            EditorGUIUtility.PingObject(timeline);
+        }
+    }
+
+    private void ExportTimelineToJson(ChartGeneratorTool tool, bool prepareRuntime)
+    {
+        if (_selectedTimeline == null)
+        {
+            EditorUtility.DisplayDialog(
+                "No Timeline Selected",
+                "Assign a Timeline Asset or select one in the Project window first.",
+                "OK");
+            return;
+        }
+
+        ChartData chart = ChartTimelineConverter.ExportTimelineToChart(_selectedTimeline);
+        if (chart == null)
+            return;
+
+        ChartSaveLoad.Save(chart, tool.SaveFileName);
+
+        if (prepareRuntime)
+        {
+            ChartNoteSpawner spawner = FindFirstObjectByType<ChartNoteSpawner>();
+            if (spawner != null)
+            {
+                Undo.RecordObject(spawner, "Prepare Runtime From Timeline");
+                spawner.SetChartFileName(tool.SaveFileName);
+                EditorUtility.SetDirty(spawner);
+            }
+        }
+
+        string message = prepareRuntime
+            ? $"Exported '{_selectedTimeline.name}' to '{tool.SaveFileName}.json' and prepared runtime."
+            : $"Exported '{_selectedTimeline.name}' to '{tool.SaveFileName}.json'.";
+
+        Debug.Log(message);
+        EditorUtility.DisplayDialog("Timeline Export Complete", message, "OK");
     }
 }
 #endif

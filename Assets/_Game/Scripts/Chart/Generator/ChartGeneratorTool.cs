@@ -12,6 +12,9 @@ public class ChartGeneratorTool : MonoBehaviour
     [Header("Preview Optional")]
     [SerializeField] private ChartVisualizer visualizer;
 
+    public string SaveFileName => saveFileName;
+    public AudioClip CurrentAudioClip => musicSource != null ? musicSource.clip : null;
+
     public void ApplySongData(SongData song)
     {
         if (song == null) return;
@@ -157,5 +160,88 @@ public class ChartGeneratorTool : MonoBehaviour
         ChartSaveLoad.Save(chart, saveFileName);
 
         Debug.Log($"Saved edited chart: {chart.songName} | Notes: {chart.notes.Count}");
+    }
+
+    public ChartData GetCurrentPreviewChart()
+    {
+        return visualizer != null ? visualizer.GetCurrentChart() : null;
+    }
+
+    public void PreviewNoteVisualTestChart()
+    {
+        if (visualizer == null)
+        {
+            Debug.LogError("Visualizer is missing.");
+            return;
+        }
+
+        ChartData chart = CreateNoteVisualTestChart();
+
+        visualizer.Settings = generationSettings;
+        visualizer.Draw(chart);
+
+        Debug.Log("Previewed note visual test chart with Tap, Hold, Flick, and Slide notes.");
+    }
+
+    public void SaveNoteVisualTestChart()
+    {
+        ChartData chart = CreateNoteVisualTestChart();
+        ChartSaveLoad.Save(chart, "chart_note_visual_test");
+
+        Debug.Log("Saved note visual test chart: chart_note_visual_test");
+    }
+
+    public void PrepareNoteVisualRuntimeTest()
+    {
+        SaveNoteVisualTestChart();
+
+        ChartNoteSpawner spawner = FindFirstObjectByType<ChartNoteSpawner>();
+        if (spawner == null)
+        {
+            Debug.LogWarning("ChartGeneratorTool: ChartNoteSpawner not found.");
+            return;
+        }
+
+        spawner.SetChartFileName("chart_note_visual_test");
+        Debug.Log("Prepared runtime note visual test. Press Play to spawn typed notes.");
+    }
+
+    private ChartData CreateNoteVisualTestChart()
+    {
+        float bpm = generationSettings != null && generationSettings.bpm > 0f
+            ? generationSettings.bpm
+            : 120f;
+
+        int laneCount = generationSettings != null && generationSettings.laneCount > 0
+            ? generationSettings.laneCount
+            : 4;
+
+        return new ChartData
+        {
+            songName = "Note Visual Test",
+            bpm = bpm,
+            offset = 0f,
+            laneCount = laneCount,
+            notes =
+            {
+                new NoteData { time = 2f, lane = 0, type = NoteType.Tap },
+                new NoteData { time = 4f, lane = 1, type = NoteType.Hold, duration = 1.5f },
+                new NoteData
+                {
+                    time = 6f,
+                    lane = 2,
+                    type = NoteType.Flick,
+                    flickDirection = FlickDirection.Up
+                },
+                new NoteData
+                {
+                    time = 8f,
+                    lane = Mathf.Min(3, laneCount - 1),
+                    type = NoteType.Slide,
+                    duration = 1.25f,
+                    slidePath = new[] { Mathf.Min(3, laneCount - 1), 2, 1 }
+                }
+            }
+        };
     }
 }

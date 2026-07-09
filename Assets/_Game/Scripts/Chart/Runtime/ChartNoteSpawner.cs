@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class ChartNoteSpawner : MonoBehaviour
 {
@@ -13,6 +14,8 @@ public class ChartNoteSpawner : MonoBehaviour
     [Header("Spawn")]
     [SerializeField] private GameObject notePrefab;
     [SerializeField] private Transform noteParent;
+    [SerializeField] private NoteVisualConfig visualConfig;
+    [SerializeField] private bool useGeneratedTypedNotes = true;
 
     [Header("Gameplay — Required for movement")]
     [Tooltip("NoteManager is required. Notes will not move without it.")]
@@ -52,9 +55,11 @@ public class ChartNoteSpawner : MonoBehaviour
     [SerializeField] private bool editMode = false;
 
     private List<ChartNoteSpawnData> _spawnDataList;
+    private readonly Dictionary<NoteType, Queue<NoteBase>> _typedPools = new();
     private int _nextSpawnIndex;
     private bool _isReady;
     private int _laneCount = 4;
+    private bool _usingTypedPools;
 
     /// <summary>
     /// Đồng bộ chartFileName với SongData được chọn từ Editor dropdown.
@@ -90,24 +95,31 @@ public class ChartNoteSpawner : MonoBehaviour
             Debug.Log("ChartNoteSpawner: Preview Note Parent đã tắt để nhường chỗ cho runtime notes.");
         }
 
-        // --- KHỞI TẠO OBJECT POOL ---
-        NotePool pool = NotePool.Instance;
-        if (pool == null)
+        if (useGeneratedTypedNotes)
         {
-            GameObject poolObj = new GameObject("NotePool");
-            pool = poolObj.AddComponent<NotePool>();
-        }
-
-        NoteBase noteBasePrefab = notePrefab != null ? notePrefab.GetComponent<NoteBase>() : null;
-        if (noteBasePrefab != null)
-        {
-            pool.InitializePool(noteBasePrefab, noteParent, initialPoolSize, noteManager);
+            InitializeTypedPools();
         }
         else
         {
-            Debug.LogError("ChartNoteSpawner: notePrefab must have a NoteBase component for Object Pooling.");
+            // --- KHỞI TẠO OBJECT POOL ---
+            NotePool pool = NotePool.Instance;
+            if (pool == null)
+            {
+                GameObject poolObj = new GameObject("NotePool");
+                pool = poolObj.AddComponent<NotePool>();
+            }
+
+            NoteBase noteBasePrefab = notePrefab != null ? notePrefab.GetComponent<NoteBase>() : null;
+            if (noteBasePrefab != null)
+            {
+                pool.InitializePool(noteBasePrefab, noteParent, initialPoolSize, noteManager);
+            }
+            else
+            {
+                Debug.LogError("ChartNoteSpawner: notePrefab must have a NoteBase component for Object Pooling.");
+            }
+            // ------------------------------
         }
-        // ------------------------------
 
         // Ưu tiên lấy từ SelectedSongManager (bài đang chọn trong menu).
         // Nếu không có (test trực tiếp trong scene) → dùng Inspector value.
@@ -208,47 +220,142 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void SpawnNote(ChartNoteSpawnData data)
     {
-        if (notePrefab == null)
+        NoteBase noteBase = GetNote(data.noteType);
+
+        if (noteBase == null)
         {
-            Debug.LogError("ChartNoteSpawner: Note prefab is missing.");
+            Debug.LogError($"ChartNoteSpawner: Could not get note for type {data.noteType}.");
             return;
         }
 
-        NoteBase noteBase = NotePool.Instance.GetNote(Vector3.zero, Quaternion.identity);
-        
-        if (noteBase != null)
+        noteBase.name = $"Note_{data.noteId}_{data.noteType}_Lane{data.laneIndex}_Time{data.hitTime:F2}";
+
+        NoteRuntimeData runtimeData = new NoteRuntimeData
         {
-            noteBase.name = $"Note_{data.noteId}_{data.noteType}_Lane{data.laneIndex}_Time{data.hitTime:F2}";
+            noteId         = data.noteId,
+            laneIndex      = data.laneIndex,
+            noteType       = data.noteType,
+            visualConfig   = visualConfig,
+            hitTime        = data.hitTime,
+            duration       = data.duration,
+            anchoredX      = GetCenteredLaneX(data.laneIndex),
+            hitlineY       = this.hitlineY,
+            scrollSpeed    = this.scrollSpeed,
+            touchRadius    = this.touchRadius,
+            flickDirection = data.flickDirection,
+            slidePath      = data.slidePath,
+            laneSpacing    = this.laneSpacing
+        };
 
-            NoteRuntimeData runtimeData = new NoteRuntimeData
+        // Initialize sẽ set anchoredPosition.x và chuẩn bị NoteMovement.
+        // NoteMovement.Tick() sẽ tính Y mỗi frame từ NoteManager.
+        noteBase.Initialize(runtimeData);
+
+        noteManager.RegisterNote(noteBase);
+
+        if (logSpawnedNotes)
+        {
+            Debug.Log($"ChartNoteSpawner: Spawned + initialized note ID {data.noteId} " +
+                      $"| Type {data.noteType} | Lane {data.laneIndex} | HitTime {data.hitTime:F2}");
+        }
+    }
+
+    private void InitializeTypedPools()
+    {
+        _usingTypedPools = true;
+        _typedPools.Clear();
+
+        if (noteManager != null)
+            noteManager.OnNoteFinishedEvent += HandleGeneratedNoteFinished;
+
+        int typeCount = System.Enum.GetValues(typeof(NoteType)).Length;
+        int perTypePoolSize = Mathf.Max(4, Mathf.CeilToInt(initialPoolSize / (float)typeCount));
+
+        foreach (NoteType noteType in System.Enum.GetValues(typeof(NoteType)))
+        {
+            Queue<NoteBase> pool = new Queue<NoteBase>();
+            _typedPools[noteType] = pool;
+
+            for (int i = 0; i < perTypePoolSize; i++)
             {
-                noteId         = data.noteId,
-                laneIndex      = data.laneIndex,
-                hitTime        = data.hitTime,
-                duration       = data.duration,
-                anchoredX      = GetCenteredLaneX(data.laneIndex),
-                hitlineY       = this.hitlineY,
-                scrollSpeed    = this.scrollSpeed,
-                touchRadius    = this.touchRadius,
-                flickDirection = data.flickDirection,
-            };
-
-            // Initialize sẽ set anchoredPosition.x và chuẩn bị NoteMovement.
-            // NoteMovement.Tick() sẽ tính Y mỗi frame từ NoteManager.
-            noteBase.Initialize(runtimeData);
-
-            noteManager.RegisterNote(noteBase);
-
-            if (logSpawnedNotes)
-            {
-                Debug.Log($"ChartNoteSpawner: Spawned + initialized note ID {data.noteId} " +
-                          $"| Lane {data.laneIndex} | HitTime {data.hitTime:F2}");
+                NoteBase note = CreateGeneratedNote(noteType);
+                note.gameObject.SetActive(false);
+                pool.Enqueue(note);
             }
         }
-        else
+
+        Debug.Log($"ChartNoteSpawner: Initialized generated typed note pools. Per type: {perTypePoolSize}");
+    }
+
+    private NoteBase GetNote(NoteType noteType)
+    {
+        if (!_usingTypedPools)
+            return NotePool.Instance != null ? NotePool.Instance.GetNote(Vector3.zero, Quaternion.identity) : null;
+
+        if (!_typedPools.TryGetValue(noteType, out Queue<NoteBase> pool))
+            pool = _typedPools[noteType] = new Queue<NoteBase>();
+
+        if (pool.Count == 0)
+            pool.Enqueue(CreateGeneratedNote(noteType));
+
+        NoteBase note = pool.Dequeue();
+        note.transform.SetParent(noteParent, false);
+        note.transform.localRotation = Quaternion.identity;
+        note.gameObject.SetActive(true);
+
+        return note;
+    }
+
+    private NoteBase CreateGeneratedNote(NoteType noteType)
+    {
+        GameObject noteObject = new GameObject(
+            $"{noteType}_Note",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image),
+            typeof(NoteMovement)
+        );
+
+        noteObject.layer = noteParent != null ? noteParent.gameObject.layer : gameObject.layer;
+        noteObject.transform.SetParent(noteParent, false);
+
+        RectTransform rectTransform = noteObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.sizeDelta = new Vector2(64f, 64f);
+
+        Image image = noteObject.GetComponent<Image>();
+        image.raycastTarget = true;
+
+        if (noteType == NoteType.Slide)
+            noteObject.AddComponent<SlideCheckpointSystem>();
+
+        return noteType switch
         {
-            Debug.LogError($"ChartNoteSpawner: NotePool returned null for note ID {data.noteId}.");
-        }
+            NoteType.Hold => noteObject.AddComponent<HoldNote>(),
+            NoteType.Flick => noteObject.AddComponent<FlickNote>(),
+            NoteType.Slide => noteObject.AddComponent<SlideNote>(),
+            _ => noteObject.AddComponent<TapNote>()
+        };
+    }
+
+    private void HandleGeneratedNoteFinished(NoteBase note, NoteResult result)
+    {
+        ReturnGeneratedNote(note);
+    }
+
+    private void ReturnGeneratedNote(NoteBase note)
+    {
+        if (!_usingTypedPools || note == null)
+            return;
+
+        note.gameObject.SetActive(false);
+
+        if (!_typedPools.TryGetValue(note.NoteType, out Queue<NoteBase> pool))
+            pool = _typedPools[note.NoteType] = new Queue<NoteBase>();
+
+        pool.Enqueue(note);
     }
 
     /// <summary>
@@ -273,7 +380,11 @@ public class ChartNoteSpawner : MonoBehaviour
             if (child.gameObject.activeSelf)
             {
                 NoteBase note = child.GetComponent<NoteBase>();
-                if (note != null && NotePool.Instance != null)
+                if (_usingTypedPools && note != null)
+                {
+                    ReturnGeneratedNote(note);
+                }
+                else if (note != null && NotePool.Instance != null)
                 {
                     NotePool.Instance.ReturnNote(note);
                 }
@@ -283,5 +394,11 @@ public class ChartNoteSpawner : MonoBehaviour
                 }
             }
         }
+    }
+
+    private void OnDestroy()
+    {
+        if (noteManager != null)
+            noteManager.OnNoteFinishedEvent -= HandleGeneratedNoteFinished;
     }
 }
