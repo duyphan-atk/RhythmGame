@@ -37,6 +37,14 @@ public class NoteManager : MonoBehaviour
 
     public float CurrentTime => currentTime;
 
+    public void ApplyHitlineLayout(float newHitlineY, float newHitlineJudgeDistance = -1f)
+    {
+        hitlineY = newHitlineY;
+
+        if (newHitlineJudgeDistance > 0f)
+            hitlineJudgeDistance = newHitlineJudgeDistance;
+    }
+
     private void Awake()
     {
         ResolveResultReceiver();

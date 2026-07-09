@@ -25,6 +25,7 @@ public class HoldNote : NoteBase
         stateMachine.Reset();
         judgmentEffectShown = false;
 
+        ApplyDurationVisual(data.scrollSpeed);
         CreateHoldVisualIfNeeded();
         SetHoldProgress(0f);
         SetHoldFillColor(Color.yellow);
@@ -161,12 +162,37 @@ public class HoldNote : NoteBase
         holdFillRect.anchorMax = new Vector2(0.5f, 0f);
         holdFillRect.pivot = new Vector2(0.5f, 0f);
 
-        holdFillRect.sizeDelta = new Vector2(70f, 0f);
+        float fillWidth = rectTransform != null && rectTransform.sizeDelta.x > 0f
+            ? rectTransform.sizeDelta.x * 0.75f
+            : 70f;
+
+        holdFillRect.sizeDelta = new Vector2(fillWidth, 0f);
         holdFillRect.anchoredPosition = Vector2.zero;
 
         holdFillImage = fillObject.GetComponent<Image>();
+        if (noteImage != null)
+            holdFillImage.sprite = noteImage.sprite;
+
+        holdFillImage.type = Image.Type.Simple;
+        holdFillImage.preserveAspect = false;
         holdFillImage.color = Color.yellow;
         holdFillImage.raycastTarget = false;
+    }
+
+    private void ApplyDurationVisual(float scrollSpeed)
+    {
+        if (rectTransform == null)
+            rectTransform = GetComponent<RectTransform>();
+
+        if (rectTransform == null)
+            return;
+
+        float width = rectTransform.sizeDelta.x;
+        float baseHeight = rectTransform.sizeDelta.y;
+        float durationHeight = Mathf.Max(0f, duration) * Mathf.Max(0f, scrollSpeed);
+
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.sizeDelta = new Vector2(width, baseHeight + durationHeight);
     }
 
     private void SetHoldProgress(float progress01)
