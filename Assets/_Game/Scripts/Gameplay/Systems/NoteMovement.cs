@@ -12,6 +12,7 @@ public class NoteMovement : MonoBehaviour
     private bool initialized;
 
     public float HitTime => hitTime;
+    public float ScrollSpeed => scrollSpeed;
 
     private void Awake()
     {
@@ -41,5 +42,10 @@ public class NoteMovement : MonoBehaviour
         Vector2 pos = rectTransform.anchoredPosition;
         pos.y = y;
         rectTransform.anchoredPosition = pos;
+    }
+
+    public void ApplyScrollSpeed(float newScrollSpeed)
+    {
+        scrollSpeed = Mathf.Max(0f, newScrollSpeed);
     }
 }

@@ -160,6 +160,15 @@ public abstract class NoteBase : MonoBehaviour
         lastDeltaMs = deltaMs;
     }
 
+    public virtual void ApplyScrollSpeed(float newScrollSpeed)
+    {
+        if (movement == null)
+            movement = GetComponent<NoteMovement>();
+
+        if (movement != null)
+            movement.ApplyScrollSpeed(newScrollSpeed);
+    }
+
     public virtual void OnPointerBegin(NotePointer pointer) { }
     public virtual void OnPointerMove(NotePointer pointer) { }
     public virtual void OnPointerStationary(NotePointer pointer) { }

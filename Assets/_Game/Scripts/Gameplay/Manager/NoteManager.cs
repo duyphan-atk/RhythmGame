@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using Keyboard = UnityEngine.InputSystem.Keyboard;
+#endif
 
 public class NoteManager : MonoBehaviour
 {
@@ -24,6 +27,17 @@ public class NoteManager : MonoBehaviour
     [SerializeField] private bool requireNearHitline = true;
     [SerializeField] private float hitlineY = -330f;
     [SerializeField] private float hitlineJudgeDistance = 150f;
+    [SerializeField] private bool useLaneLayoutHitbox = true;
+    [SerializeField, Range(0.25f, 1.25f)] private float laneHitboxWidthRatio = 0.95f;
+
+    [Header("PC Test Input")]
+    [Tooltip("Cho phép giả lập 4 lane bằng bàn phím trong Play Mode.")]
+    [SerializeField] private bool enableKeyboardLaneInput = true;
+    [SerializeField] private GameplayLaneLayout laneLayout;
+    [SerializeField] private KeyCode lane0Key = KeyCode.A;
+    [SerializeField] private KeyCode lane1Key = KeyCode.S;
+    [SerializeField] private KeyCode lane2Key = KeyCode.Semicolon;
+    [SerializeField] private KeyCode lane3Key = KeyCode.Quote;
 
     private INoteResultReceiver resultReceiver;
 
@@ -31,6 +45,7 @@ public class NoteManager : MonoBehaviour
     private readonly Dictionary<int, NoteBase> fingerToNote = new Dictionary<int, NoteBase>();
 
     private Vector2 lastMousePosition;
+    private const int KeyboardFingerBaseId = -2000;
 
     public event Action<NoteBase, NoteResult> OnNoteFinishedEvent;
     public event Action<NoteBase, HitJudgment, float> OnNoteJudgedEvent;
@@ -48,6 +63,9 @@ public class NoteManager : MonoBehaviour
     private void Awake()
     {
         ResolveResultReceiver();
+
+        if (laneLayout == null)
+            laneLayout = FindFirstObjectByType<GameplayLaneLayout>();
     }
 
     private void Update()
@@ -66,6 +84,8 @@ public class NoteManager : MonoBehaviour
 #if UNITY_EDITOR
         HandleMouseInputForEditor();
 #endif
+
+        HandleKeyboardLaneInput();
 
         CheckAutoMiss();
     }
@@ -193,20 +213,20 @@ public class NoteManager : MonoBehaviour
 
             switch (touch.phase)
             {
-                case TouchPhase.Began:
+                case UnityEngine.TouchPhase.Began:
                     PointerBegin(pointer);
                     break;
 
-                case TouchPhase.Moved:
+                case UnityEngine.TouchPhase.Moved:
                     PointerMove(pointer);
                     break;
 
-                case TouchPhase.Stationary:
+                case UnityEngine.TouchPhase.Stationary:
                     PointerStationary(pointer);
                     break;
 
-                case TouchPhase.Ended:
-                case TouchPhase.Canceled:
+                case UnityEngine.TouchPhase.Ended:
+                case UnityEngine.TouchPhase.Canceled:
                     PointerEnd(pointer);
                     break;
             }
@@ -245,6 +265,136 @@ public class NoteManager : MonoBehaviour
         lastMousePosition = mousePosition;
     }
 #endif
+
+    private void HandleKeyboardLaneInput()
+    {
+        if (!enableKeyboardLaneInput)
+            return;
+
+        for (int laneIndex = 0; laneIndex < 4; laneIndex++)
+        {
+            KeyCode key = GetKeyboardKeyForLane(laneIndex);
+
+            if (key == KeyCode.None)
+                continue;
+
+            int fingerId = KeyboardFingerBaseId - laneIndex;
+            Vector2 position = GetKeyboardLanePosition(laneIndex);
+
+            NotePointer pointer = new NotePointer(
+                fingerId,
+                position,
+                Vector2.zero,
+                Time.unscaledTime
+            );
+
+            if (WasKeyPressedThisFrame(key))
+                PointerBegin(pointer);
+
+            if (IsKeyPressed(key))
+                PointerStationary(pointer);
+
+            if (WasKeyReleasedThisFrame(key))
+                PointerEnd(pointer);
+        }
+    }
+
+    private KeyCode GetKeyboardKeyForLane(int laneIndex)
+    {
+        return laneIndex switch
+        {
+            0 => lane0Key,
+            1 => lane1Key,
+            2 => lane2Key,
+            3 => lane3Key,
+            _ => KeyCode.None
+        };
+    }
+
+    private Vector2 GetKeyboardLanePosition(int laneIndex)
+    {
+        if (laneLayout != null)
+            return laneLayout.GetLaneHitScreenPosition(laneIndex);
+
+        float x = Screen.width * ((laneIndex + 1f) / 5f);
+        float y = Screen.height * 0.2f;
+        return new Vector2(x, y);
+    }
+
+    private static bool WasKeyPressedThisFrame(KeyCode key)
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(key))
+            return true;
+#endif
+
+#if ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return false;
+
+        return key switch
+        {
+            KeyCode.A => keyboard.aKey.wasPressedThisFrame,
+            KeyCode.S => keyboard.sKey.wasPressedThisFrame,
+            KeyCode.Semicolon => keyboard.semicolonKey.wasPressedThisFrame,
+            KeyCode.Quote => keyboard.quoteKey.wasPressedThisFrame,
+            _ => false
+        };
+#else
+        return false;
+#endif
+    }
+
+    private static bool IsKeyPressed(KeyCode key)
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKey(key))
+            return true;
+#endif
+
+#if ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return false;
+
+        return key switch
+        {
+            KeyCode.A => keyboard.aKey.isPressed,
+            KeyCode.S => keyboard.sKey.isPressed,
+            KeyCode.Semicolon => keyboard.semicolonKey.isPressed,
+            KeyCode.Quote => keyboard.quoteKey.isPressed,
+            _ => false
+        };
+#else
+        return false;
+#endif
+    }
+
+    private static bool WasKeyReleasedThisFrame(KeyCode key)
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyUp(key))
+            return true;
+#endif
+
+#if ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return false;
+
+        return key switch
+        {
+            KeyCode.A => keyboard.aKey.wasReleasedThisFrame,
+            KeyCode.S => keyboard.sKey.wasReleasedThisFrame,
+            KeyCode.Semicolon => keyboard.semicolonKey.wasReleasedThisFrame,
+            KeyCode.Quote => keyboard.quoteKey.wasReleasedThisFrame,
+            _ => false
+        };
+#else
+        return false;
+#endif
+    }
 
     private void PointerBegin(NotePointer pointer)
     {
@@ -340,6 +490,7 @@ public class NoteManager : MonoBehaviour
     {
         NoteBase bestNote = null;
         float bestScore = float.MaxValue;
+        bool hasLayoutLane = TryGetLayoutLane(screenPosition, out int pointerLane, out float laneDistance);
 
         foreach (NoteBase note in activeNotes)
         {
@@ -362,10 +513,22 @@ public class NoteManager : MonoBehaviour
                     continue;
             }
 
-            float distanceToTouch = note.DistanceToPointer(screenPosition);
+            float distanceToTouch;
 
-            if (distanceToTouch > note.TouchRadius)
-                continue;
+            if (hasLayoutLane)
+            {
+                if (note.LaneIndex != pointerLane)
+                    continue;
+
+                distanceToTouch = laneDistance;
+            }
+            else
+            {
+                distanceToTouch = note.DistanceToPointer(screenPosition);
+
+                if (distanceToTouch > note.TouchRadius)
+                    continue;
+            }
 
             // Ưu tiên note gần hitTime hơn.
             // Nếu timing gần nhau thì ưu tiên note gần vị trí chạm hơn.
@@ -380,6 +543,22 @@ public class NoteManager : MonoBehaviour
         }
 
         return bestNote;
+    }
+
+    private bool TryGetLayoutLane(Vector2 screenPosition, out int laneIndex, out float distanceToLaneCenter)
+    {
+        laneIndex = -1;
+        distanceToLaneCenter = float.MaxValue;
+
+        if (!useLaneLayoutHitbox)
+            return false;
+
+        return laneLayout != null &&
+            laneLayout.TryGetLaneIndexFromScreenPosition(
+                screenPosition,
+                laneHitboxWidthRatio,
+                out laneIndex,
+                out distanceToLaneCenter);
     }
 
     private void RemoveFingerBindingOfNote(NoteBase note)

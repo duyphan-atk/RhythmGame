@@ -11,6 +11,8 @@ public class HoldNote : NoteBase
 
     private bool visualCreated;
     private bool judgmentEffectShown;
+    private float baseVisualWidth;
+    private float baseVisualHeight;
 
     protected override void Awake()
     {
@@ -25,12 +27,20 @@ public class HoldNote : NoteBase
         stateMachine.Reset();
         judgmentEffectShown = false;
 
+        CacheBaseVisualSize();
         ApplyDurationVisual(data.scrollSpeed);
         CreateHoldVisualIfNeeded();
         SetHoldProgress(0f);
         SetHoldFillColor(Color.yellow);
 
         SetColor(Color.white);
+    }
+
+    public override void ApplyScrollSpeed(float newScrollSpeed)
+    {
+        base.ApplyScrollSpeed(newScrollSpeed);
+        ApplyDurationVisual(newScrollSpeed);
+        SetHoldProgress(stateMachine.Progress01);
     }
 
     public override void OnPointerBegin(NotePointer pointer)
@@ -187,12 +197,25 @@ public class HoldNote : NoteBase
         if (rectTransform == null)
             return;
 
-        float width = rectTransform.sizeDelta.x;
-        float baseHeight = rectTransform.sizeDelta.y;
+        if (baseVisualWidth <= 0f || baseVisualHeight <= 0f)
+            CacheBaseVisualSize();
+
         float durationHeight = Mathf.Max(0f, duration) * Mathf.Max(0f, scrollSpeed);
 
         rectTransform.pivot = new Vector2(0.5f, 0f);
-        rectTransform.sizeDelta = new Vector2(width, baseHeight + durationHeight);
+        rectTransform.sizeDelta = new Vector2(baseVisualWidth, baseVisualHeight + durationHeight);
+    }
+
+    private void CacheBaseVisualSize()
+    {
+        if (rectTransform == null)
+            rectTransform = GetComponent<RectTransform>();
+
+        if (rectTransform == null)
+            return;
+
+        baseVisualWidth = rectTransform.sizeDelta.x;
+        baseVisualHeight = rectTransform.sizeDelta.y;
     }
 
     private void SetHoldProgress(float progress01)
