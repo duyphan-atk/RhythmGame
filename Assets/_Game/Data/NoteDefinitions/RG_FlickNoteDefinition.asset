@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96f9abb4ac86e004bbeed9da8429af89, type: 3}
+  m_Name: RG_Flick
+  m_EditorClassIdentifier: 
+  m_NotePrefab: {fileID: 3114862973358934936, guid: 80c0e931b2a4a7c4a9adc67ab2b5c39b, type: 3}
+  m_ClipDuration: 5
+  m_DurationScaler: 0.1
+  m_RhythmClipEditorSettings:
+    m_Left: {fileID: 0}
+    m_Center: {fileID: 0}
+    m_Right: {fileID: 0}
+    m_Color: {r: 1, g: 0.45, b: 0.95, a: 1}

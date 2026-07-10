@@ -1,4 +1,7 @@
 #if UNITY_EDITOR
+using System;
+using System.Globalization;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Dypsloom.RhythmTimeline.Core;
@@ -7,6 +10,12 @@ using Dypsloom.RhythmTimeline.Core;
 public class ChartGeneratorToolEditor : Editor
 {
     private static RhythmTimelineAsset _selectedTimeline;
+    private static NoteType _newNoteType = NoteType.Tap;
+    private static int _newNoteLane;
+    private static float _newNoteTime;
+    private static float _newNoteDuration = 1f;
+    private static FlickDirection _newFlickDirection = FlickDirection.Any;
+    private static string _newSlidePath = string.Empty;
 
     // Cache danh sách SongData để không load lại mỗi frame
     private SongData[] _allSongs;
@@ -138,6 +147,14 @@ public class ChartGeneratorToolEditor : Editor
         if (GUILayout.Button("Create Timeline From Saved Chart"))
             CreateTimelineFromSavedChart(tool);
 
+        using (new EditorGUI.DisabledScope(_selectedTimeline == null))
+        {
+            if (GUILayout.Button("Setup Timeline Audio Preview"))
+                ChartTimelineAudioPreviewSetup.Setup(_selectedTimeline, tool.CurrentAudioClip, showDialog: true);
+        }
+
+        DrawTimelineNoteTools();
+
         if (GUILayout.Button("Export Timeline To JSON"))
             ExportTimelineToJson(tool, prepareRuntime: false);
 
@@ -247,6 +264,7 @@ public class ChartGeneratorToolEditor : Editor
             return;
 
         ChartSaveLoad.Save(chart, tool.SaveFileName);
+        tool.PreviewChart(chart);
 
         if (prepareRuntime)
         {
@@ -265,6 +283,87 @@ public class ChartGeneratorToolEditor : Editor
 
         Debug.Log(message);
         EditorUtility.DisplayDialog("Timeline Export Complete", message, "OK");
+    }
+
+    private void DrawTimelineNoteTools()
+    {
+        GUILayout.Space(6);
+        EditorGUILayout.LabelField("Timeline Note Tools", EditorStyles.boldLabel);
+
+        EditorGUILayout.HelpBox(
+            "Use this section for RhythmGame notes. Avoid the Dypsloom Select Note dropdown unless you need package demos.",
+            MessageType.Info);
+
+        _newNoteType = (NoteType)EditorGUILayout.EnumPopup("RG Note Type", _newNoteType);
+        _newNoteLane = Mathf.Max(0, EditorGUILayout.IntField("Lane", _newNoteLane));
+        _newNoteTime = Mathf.Max(0f, EditorGUILayout.FloatField("Time Seconds", _newNoteTime));
+
+        if (_newNoteType == NoteType.Hold || _newNoteType == NoteType.Slide)
+            _newNoteDuration = Mathf.Max(0.1f, EditorGUILayout.FloatField("Duration Seconds", _newNoteDuration));
+
+        if (_newNoteType == NoteType.Flick)
+            _newFlickDirection = (FlickDirection)EditorGUILayout.EnumPopup("Flick Direction", _newFlickDirection);
+
+        if (_newNoteType == NoteType.Slide)
+            _newSlidePath = EditorGUILayout.TextField("Slide Path Lanes", _newSlidePath);
+
+        using (new EditorGUI.DisabledScope(_selectedTimeline == null))
+        {
+            if (GUILayout.Button("Add RG Note At Time"))
+                AddTimelineNoteAtTime();
+        }
+    }
+
+    private void AddTimelineNoteAtTime()
+    {
+        if (_selectedTimeline == null)
+        {
+            EditorUtility.DisplayDialog(
+                "No Timeline Selected",
+                "Assign a Timeline Asset before adding a note.",
+                "OK");
+            return;
+        }
+
+        NoteData note = new NoteData
+        {
+            time = _newNoteTime,
+            lane = _newNoteLane,
+            type = _newNoteType,
+            duration = _newNoteType == NoteType.Hold || _newNoteType == NoteType.Slide
+                ? _newNoteDuration
+                : 0f,
+            flickDirection = _newNoteType == NoteType.Flick
+                ? _newFlickDirection
+                : FlickDirection.Any,
+            slidePath = _newNoteType == NoteType.Slide
+                ? ParseSlidePath(_newSlidePath, _newNoteLane)
+                : Array.Empty<int>()
+        };
+
+        Undo.RegisterCompleteObjectUndo(_selectedTimeline, "Add RG Note To Timeline");
+        ChartTimelineConverter.AddNoteToTimeline(_selectedTimeline, note);
+        EditorGUIUtility.PingObject(_selectedTimeline);
+    }
+
+    private static int[] ParseSlidePath(string value, int fallbackLane)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return new[] { fallbackLane };
+
+        int[] lanes = value
+            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(ParseLane)
+            .ToArray();
+
+        return lanes.Length > 0 ? lanes : new[] { fallbackLane };
+    }
+
+    private static int ParseLane(string value)
+    {
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int lane)
+            ? Mathf.Max(0, lane)
+            : 0;
     }
 }
 #endif

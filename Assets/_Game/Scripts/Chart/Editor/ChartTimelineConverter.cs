@@ -52,20 +52,7 @@ public static class ChartTimelineConverter
             int lane = Mathf.Clamp(note.lane, 0, laneCount - 1);
 
             TimelineClip clip = tracks[lane].CreateClip<RhythmClip>();
-            clip.displayName = GetClipDisplayName(note);
-            clip.start = Mathf.Max(0f, note.time);
-            clip.duration = GetClipDuration(note);
-
-            RhythmClip rhythmClip = clip.asset as RhythmClip;
-            if (rhythmClip == null)
-                continue;
-
-            rhythmClip.SetNoteDefinition(noteDefinitions[(int)note.type]);
-            rhythmClip.ClipParameters.IntParameter = (int)note.type;
-            rhythmClip.ClipParameters.FloatParameter = note.duration;
-            rhythmClip.ClipParameters.StringParameter = ChartTimelineMetadata.Encode(note);
-
-            EditorUtility.SetDirty(rhythmClip);
+            ApplyNoteToClip(clip, note, noteDefinitions[(int)note.type]);
         }
 
         EditorUtility.SetDirty(timeline);
@@ -75,6 +62,36 @@ public static class ChartTimelineConverter
 
         Debug.Log($"ChartTimelineConverter: Created timeline '{assetPath}' from chart '{chart.songName}' with {chart.notes.Count} notes.");
         return timeline;
+    }
+
+    public static TimelineClip AddNoteToTimeline(RhythmTimelineAsset timeline, NoteData note)
+    {
+        if (timeline == null)
+        {
+            Debug.LogError("ChartTimelineConverter: Timeline is null.");
+            return null;
+        }
+
+        if (note == null)
+        {
+            Debug.LogError("ChartTimelineConverter: Note is null.");
+            return null;
+        }
+
+        int lane = Mathf.Max(0, note.lane);
+        RhythmTrack track = FindOrCreateRhythmTrack(timeline, lane);
+        NoteDefinition noteDefinition = LoadOrCreateNoteDefinition(note.type);
+
+        TimelineClip clip = track.CreateClip<RhythmClip>();
+        ApplyNoteToClip(clip, note, noteDefinition);
+
+        EditorUtility.SetDirty(track);
+        EditorUtility.SetDirty(timeline);
+        AssetDatabase.SaveAssets();
+        TimelineEditor.Refresh(RefreshReason.ContentsAddedOrRemoved | RefreshReason.WindowNeedsRedraw);
+
+        Debug.Log($"ChartTimelineConverter: Added {note.type} note at {note.time:0.###}s on lane {lane}.");
+        return clip;
     }
 
     public static ChartData ExportTimelineToChart(RhythmTimelineAsset timeline)
@@ -113,11 +130,12 @@ public static class ChartTimelineConverter
                     time = (float)clip.start,
                     lane = lane,
                     type = noteType,
-                    duration = GetNoteDurationFromClip(noteType, clip, rhythmClip),
+                    duration = GetNoteDurationFromClip(noteType, clip),
                     flickDirection = FlickDirection.Any
                 };
 
                 ChartTimelineMetadata.Decode(rhythmClip.ClipParameters.StringParameter, note);
+                note.duration = GetNoteDurationFromClip(note.type, clip);
                 chart.notes.Add(note);
             }
         }
@@ -182,7 +200,7 @@ public static class ChartTimelineConverter
     private static NoteDefinition LoadOrCreateNoteDefinition(NoteType noteType)
     {
         string folder = "Assets/_Game/Data/NoteDefinitions";
-        string path = $"{folder}/{noteType}NoteDefinition.asset";
+        string path = $"{folder}/RG_{noteType}NoteDefinition.asset";
 
         NoteDefinition existing = AssetDatabase.LoadAssetAtPath<NoteDefinition>(path);
         if (existing != null)
@@ -205,6 +223,8 @@ public static class ChartTimelineConverter
     {
         if (noteDefinition == null)
             return;
+
+        noteDefinition.name = $"RG_{noteType}";
 
         SerializedObject serializedDefinition = new SerializedObject(noteDefinition);
 
@@ -256,22 +276,51 @@ public static class ChartTimelineConverter
 
     private static float GetNoteDurationFromClip(
         NoteType noteType,
-        TimelineClip clip,
-        RhythmClip rhythmClip)
+        TimelineClip clip)
     {
         if (noteType != NoteType.Hold && noteType != NoteType.Slide)
             return 0f;
-
-        float parameterDuration = rhythmClip.ClipParameters.FloatParameter;
-        if (parameterDuration > 0f)
-            return parameterDuration;
 
         return Mathf.Max(0f, (float)clip.duration);
     }
 
     private static string GetClipDisplayName(NoteData note)
     {
-        return $"{note.type} L{note.lane}";
+        return $"RG_{note.type} L{note.lane}";
+    }
+
+    private static void ApplyNoteToClip(
+        TimelineClip clip,
+        NoteData note,
+        NoteDefinition noteDefinition)
+    {
+        clip.displayName = GetClipDisplayName(note);
+        clip.start = Mathf.Max(0f, note.time);
+        clip.duration = GetClipDuration(note);
+
+        RhythmClip rhythmClip = clip.asset as RhythmClip;
+        if (rhythmClip == null)
+            return;
+
+        rhythmClip.SetNoteDefinition(noteDefinition);
+        rhythmClip.ClipParameters.IntParameter = (int)note.type;
+        rhythmClip.ClipParameters.FloatParameter = note.duration;
+        rhythmClip.ClipParameters.StringParameter = ChartTimelineMetadata.Encode(note);
+
+        EditorUtility.SetDirty(rhythmClip);
+    }
+
+    private static RhythmTrack FindOrCreateRhythmTrack(RhythmTimelineAsset timeline, int lane)
+    {
+        foreach (TrackAsset trackAsset in timeline.GetOutputTracks())
+        {
+            if (trackAsset is RhythmTrack rhythmTrack && rhythmTrack.ID == lane)
+                return rhythmTrack;
+        }
+
+        RhythmTrack newTrack = timeline.CreateTrack<RhythmTrack>(null, $"Lane {lane}");
+        newTrack.SetID(lane);
+        return newTrack;
     }
 
     private static void EnsureDirectory(string assetPath)

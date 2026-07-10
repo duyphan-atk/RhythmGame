@@ -167,6 +167,26 @@ public class ChartGeneratorTool : MonoBehaviour
         return visualizer != null ? visualizer.GetCurrentChart() : null;
     }
 
+    public void PreviewChart(ChartData chart)
+    {
+        if (visualizer == null)
+        {
+            Debug.LogError("Visualizer is missing.");
+            return;
+        }
+
+        if (chart == null)
+        {
+            Debug.LogWarning("No chart data to preview.");
+            return;
+        }
+
+        visualizer.Settings = generationSettings;
+        visualizer.Draw(chart);
+
+        Debug.Log($"Previewed chart: {chart.songName} | Notes: {chart.notes.Count}");
+    }
+
     public void PreviewNoteVisualTestChart()
     {
         if (visualizer == null)

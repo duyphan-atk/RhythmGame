@@ -14,33 +14,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fallback:
     noteType: 0
-    sprite: {fileID: -4086557526694802961, guid: c37da1909c63eb2428f1da721d0e3302, type: 3}
+    sprite: {fileID: 21300000, guid: 23558d02e0c9210478018bdd774c618c, type: 3}
     color: {r: 0.33, g: 0.86, b: 1, a: 1}
-    uiSize: {x: 64, y: 64}
-    preserveAspect: 1
-    previewScale: {x: 0.48, y: 0.48, z: 1}
+    uiSize: {x: 140, y: 38}
+    preserveAspect: 0
+    previewScale: {x: 0.14, y: 0.14, z: 1}
   styles:
   - noteType: 0
-    sprite: {fileID: -4086557526694802961, guid: c37da1909c63eb2428f1da721d0e3302, type: 3}
+    sprite: {fileID: 21300000, guid: 23558d02e0c9210478018bdd774c618c, type: 3}
     color: {r: 0.33, g: 0.86, b: 1, a: 1}
-    uiSize: {x: 64, y: 64}
-    preserveAspect: 1
-    previewScale: {x: 0.48, y: 0.48, z: 1}
+    uiSize: {x: 140, y: 38}
+    preserveAspect: 0
+    previewScale: {x: 0.14, y: 0.14, z: 1}
   - noteType: 1
-    sprite: {fileID: 829568917959570099, guid: b3da4e9c2f697884791ea56e3f8603f4, type: 3}
+    sprite: {fileID: 21300000, guid: 7296aec9dcf46624681c8fa6e136526d, type: 3}
     color: {r: 1, g: 0.82, b: 0.28, a: 1}
-    uiSize: {x: 56, y: 104}
-    preserveAspect: 1
-    previewScale: {x: 0.42, y: 0.72, z: 1}
+    uiSize: {x: 140, y: 90}
+    preserveAspect: 0
+    previewScale: {x: 0.14, y: 0.12, z: 1}
   - noteType: 2
-    sprite: {fileID: -6444886134776101490, guid: 9daba6a811d52024ba2cd88e1e82a542, type: 3}
+    sprite: {fileID: 21300000, guid: 4669296c8d28cae4c873e13991d00c53, type: 3}
     color: {r: 1, g: 0.45, b: 0.95, a: 1}
-    uiSize: {x: 64, y: 64}
-    preserveAspect: 1
-    previewScale: {x: 0.5, y: 0.5, z: 1}
+    uiSize: {x: 140, y: 48}
+    preserveAspect: 0
+    previewScale: {x: 0.14, y: 0.14, z: 1}
   - noteType: 3
-    sprite: {fileID: -1872188594776611485, guid: 449a82f8e403ab24fada10c006a715a7, type: 3}
+    sprite: {fileID: 21300000, guid: cbe07193809fa4848a610613ea549bcf, type: 3}
     color: {r: 0.42, g: 1, b: 0.5, a: 1}
-    uiSize: {x: 72, y: 72}
-    preserveAspect: 1
-    previewScale: {x: 0.54, y: 0.54, z: 1}
+    uiSize: {x: 140, y: 34}
+    preserveAspect: 0
+    previewScale: {x: 0.14, y: 0.14, z: 1}

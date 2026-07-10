@@ -11,6 +11,8 @@ public class ChartVisualizer : MonoBehaviour
     [Header("Layout")]
     [SerializeField] private float laneSpacing = 1.2f;
     [SerializeField] private float timeSpacing = 1f;
+    [SerializeField] private float minHoldPreviewWorldHeight = 0.35f;
+    [SerializeField] private float maxHoldPreviewWorldHeight = 6f;
 
     // Reference to settings to read BPM and Subdivision for snapping
     public ChartGenerationSettings Settings { get; set; }
@@ -51,7 +53,7 @@ public class ChartVisualizer : MonoBehaviour
             }
 
             previewNote.Initialize(i, note, this);
-            ApplyPreviewVisual(noteObject, note.type);
+            ApplyPreviewVisual(noteObject, note);
         }
     }
 
@@ -111,12 +113,12 @@ public class ChartVisualizer : MonoBehaviour
         return currentChart;
     }
 
-    private void ApplyPreviewVisual(GameObject noteObject, NoteType noteType)
+    private void ApplyPreviewVisual(GameObject noteObject, NoteData note)
     {
         if (visualConfig == null || noteObject == null)
             return;
 
-        NoteVisualStyle style = visualConfig.GetStyle(noteType);
+        NoteVisualStyle style = visualConfig.GetStyle(note.type);
 
         SpriteRenderer spriteRenderer = noteObject.GetComponent<SpriteRenderer>();
         if (spriteRenderer != null)
@@ -127,8 +129,42 @@ public class ChartVisualizer : MonoBehaviour
             spriteRenderer.color = style.color;
         }
 
-        Vector3 previewScale = style.previewScale;
+        Vector3 previewScale = GetPreviewScale(style, note, spriteRenderer, out float centerOffsetY);
+
+        if (centerOffsetY > 0f)
+            noteObject.transform.position += new Vector3(0f, centerOffsetY, 0f);
+
         if (previewScale.x > 0f && previewScale.y > 0f && previewScale.z > 0f)
             noteObject.transform.localScale = previewScale;
+    }
+
+    private Vector3 GetPreviewScale(
+        NoteVisualStyle style,
+        NoteData note,
+        SpriteRenderer spriteRenderer,
+        out float centerOffsetY)
+    {
+        centerOffsetY = 0f;
+        Vector3 previewScale = style.previewScale;
+
+        if (note.type != NoteType.Hold || note.duration <= 0f)
+            return previewScale;
+
+        if (spriteRenderer == null || spriteRenderer.sprite == null)
+            return previewScale;
+
+        float spriteHeight = spriteRenderer.sprite.bounds.size.y;
+        if (spriteHeight <= 0f)
+            return previewScale;
+
+        float targetHeight = Mathf.Clamp(
+            note.duration * timeSpacing,
+            minHoldPreviewWorldHeight,
+            maxHoldPreviewWorldHeight);
+
+        previewScale.y = targetHeight / spriteHeight;
+        centerOffsetY = targetHeight * 0.5f;
+
+        return previewScale;
     }
 }

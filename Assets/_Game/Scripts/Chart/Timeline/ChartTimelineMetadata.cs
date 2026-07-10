@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using UnityEngine;
 
 public static class ChartTimelineMetadata
 {
@@ -9,6 +10,8 @@ public static class ChartTimelineMetadata
 
     public static string Encode(NoteData note)
     {
+        string type = note.type.ToString();
+        string duration = note.duration.ToString(CultureInfo.InvariantCulture);
         string flick = note.flickDirection.ToString();
         string slidePath = note.slidePath == null || note.slidePath.Length == 0
             ? string.Empty
@@ -16,6 +19,8 @@ public static class ChartTimelineMetadata
 
         return string.Join(
             SectionSeparator.ToString(),
+            type,
+            duration,
             flick,
             slidePath);
     }
@@ -26,17 +31,35 @@ public static class ChartTimelineMetadata
             return;
 
         string[] sections = value.Split(SectionSeparator);
+        int index = 0;
 
-        if (sections.Length > 0 &&
-            Enum.TryParse(sections[0], out FlickDirection flickDirection))
+        if (sections.Length > index &&
+            Enum.TryParse(sections[index], out NoteType noteType))
         {
-            note.flickDirection = flickDirection;
+            note.type = noteType;
+            index++;
         }
 
-        if (sections.Length <= 1 || string.IsNullOrWhiteSpace(sections[1]))
+        if (sections.Length > index &&
+            float.TryParse(sections[index], NumberStyles.Float, CultureInfo.InvariantCulture, out float duration))
+        {
+            if (note.duration <= 0f)
+                note.duration = Mathf.Max(0f, duration);
+
+            index++;
+        }
+
+        if (sections.Length > index &&
+            Enum.TryParse(sections[index], out FlickDirection flickDirection))
+        {
+            note.flickDirection = flickDirection;
+            index++;
+        }
+
+        if (sections.Length <= index || string.IsNullOrWhiteSpace(sections[index]))
             return;
 
-        note.slidePath = sections[1]
+        note.slidePath = sections[index]
             .Split(ValueSeparator)
             .Select(ParseLane)
             .ToArray();

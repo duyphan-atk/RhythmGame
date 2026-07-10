@@ -70,6 +70,15 @@ public class ChartNoteSpawner : MonoBehaviour
         chartFileName = fileName;
     }
 
+    public void ApplyGameplayLayout(float newLaneSpacing, float newHitlineY, float newTouchRadius = -1f)
+    {
+        laneSpacing = Mathf.Max(1f, newLaneSpacing);
+        hitlineY = newHitlineY;
+
+        if (newTouchRadius > 0f)
+            touchRadius = newTouchRadius;
+    }
+
     private void Start()
     {
         // ─── EDIT MODE: chỉ xem preview, không spawn runtime notes ───────────
