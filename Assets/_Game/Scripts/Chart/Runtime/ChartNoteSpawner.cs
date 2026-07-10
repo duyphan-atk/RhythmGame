@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using Keyboard = UnityEngine.InputSystem.Keyboard;
+#endif
 
 public class ChartNoteSpawner : MonoBehaviour
 {
@@ -40,6 +43,15 @@ public class ChartNoteSpawner : MonoBehaviour
 
     [Tooltip("Touch radius in pixels used for input detection.")]
     [SerializeField] private float touchRadius = 120f;
+
+    [Header("PC Test Controls")]
+    [SerializeField] private bool enableScrollSpeedHotkeys = true;
+    [SerializeField] private KeyCode increaseSpeedKey = KeyCode.F3;
+    [SerializeField] private KeyCode decreaseSpeedKey = KeyCode.F4;
+    [SerializeField] private float scrollSpeedStep = 50f;
+    [SerializeField] private float minScrollSpeed = 120f;
+    [SerializeField] private float maxScrollSpeed = 1400f;
+    [SerializeField] private bool logScrollSpeedChanges = true;
 
     [Header("Timing")]
     [SerializeField] private float preSpawnTime = 2f;
@@ -183,6 +195,8 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void Update()
     {
+        HandleScrollSpeedHotkeys();
+
         if (!_isReady)
         {
             return;
@@ -207,6 +221,25 @@ public class ChartNoteSpawner : MonoBehaviour
         noteManager.SetExternalTime(songTime);
 
         SpawnDueNotes(songTime);
+    }
+
+    public void AdjustScrollSpeed(float delta)
+    {
+        SetScrollSpeed(scrollSpeed + delta);
+    }
+
+    public void SetScrollSpeed(float newScrollSpeed)
+    {
+        float previousSpeed = scrollSpeed;
+        scrollSpeed = Mathf.Clamp(newScrollSpeed, minScrollSpeed, maxScrollSpeed);
+
+        if (Mathf.Approximately(previousSpeed, scrollSpeed))
+            return;
+
+        ApplyScrollSpeedToActiveNotes();
+
+        if (logScrollSpeedChanges)
+            Debug.Log($"ChartNoteSpawner: Scroll speed = {scrollSpeed:F0}");
     }
 
     private void SpawnDueNotes(float songTime)
@@ -402,6 +435,54 @@ public class ChartNoteSpawner : MonoBehaviour
                     Destroy(child.gameObject);
                 }
             }
+        }
+    }
+
+    private void HandleScrollSpeedHotkeys()
+    {
+        if (!enableScrollSpeedHotkeys)
+            return;
+
+        if (WasKeyPressedThisFrame(increaseSpeedKey))
+            AdjustScrollSpeed(scrollSpeedStep);
+
+        if (WasKeyPressedThisFrame(decreaseSpeedKey))
+            AdjustScrollSpeed(-scrollSpeedStep);
+    }
+
+    private static bool WasKeyPressedThisFrame(KeyCode key)
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(key))
+            return true;
+#endif
+
+#if ENABLE_INPUT_SYSTEM
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return false;
+
+        return key switch
+        {
+            KeyCode.F3 => keyboard.f3Key.wasPressedThisFrame,
+            KeyCode.F4 => keyboard.f4Key.wasPressedThisFrame,
+            _ => false
+        };
+#else
+        return false;
+#endif
+    }
+
+    private void ApplyScrollSpeedToActiveNotes()
+    {
+        if (noteParent == null)
+            return;
+
+        NoteBase[] notes = noteParent.GetComponentsInChildren<NoteBase>(false);
+        foreach (NoteBase note in notes)
+        {
+            if (note != null)
+                note.ApplyScrollSpeed(scrollSpeed);
         }
     }
 

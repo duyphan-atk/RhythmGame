@@ -20,9 +20,9 @@ public class GameplayLaneLayout : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] private int laneCount = 4;
-    [SerializeField, Range(0.2f, 0.8f)] private float laneAreaWidthRatio = 0.36f;
-    [SerializeField] private float minLaneSpacing = 120f;
-    [SerializeField] private float maxLaneSpacing = 210f;
+    [SerializeField, Range(0.12f, 0.8f)] private float laneAreaWidthRatio = 0.24f;
+    [SerializeField] private float minLaneSpacing = 78f;
+    [SerializeField] private float maxLaneSpacing = 116f;
     [SerializeField, Range(0.05f, 0.48f)] private float hitlineFromBottomRatio = 0.12f;
     [SerializeField] private float hitlineOffsetY = 0f;
     [SerializeField] private float hitlineJudgeDistanceRatio = 0.68f;
@@ -32,9 +32,13 @@ public class GameplayLaneLayout : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private float appliedLaneSpacing;
     [SerializeField] private float appliedHitlineY;
+    [SerializeField] private float appliedTouchRadius;
+    [SerializeField] private float appliedHitlineJudgeDistance;
 
     public float AppliedLaneSpacing => appliedLaneSpacing;
     public float AppliedHitlineY => appliedHitlineY;
+    public float AppliedTouchRadius => appliedTouchRadius;
+    public float AppliedHitlineJudgeDistance => appliedHitlineJudgeDistance;
 
     private RectTransform rectTransform;
     private Vector2 lastCanvasSize;
@@ -131,7 +135,7 @@ public class GameplayLaneLayout : MonoBehaviour
         float firstLaneX = -((activeLaneCount - 1) * appliedLaneSpacing) * 0.5f;
         float laneBandWidth = activeLaneCount * appliedLaneSpacing;
         float stageHeight = canvasSize.y + verticalBleed * 2f;
-        float sideWidth = Mathf.Clamp(appliedLaneSpacing * 0.86f, 110f, 180f);
+        float sideWidth = Mathf.Clamp(appliedLaneSpacing * 0.34f, 34f, 58f);
         float stageWidth = laneBandWidth + sideWidth * 2f;
         float sideX = laneBandWidth * 0.5f + sideWidth * 0.5f;
 
@@ -148,7 +152,7 @@ public class GameplayLaneLayout : MonoBehaviour
             if (laneLights != null && i < laneLights.Length)
             {
                 SetRect(laneLights[i],
-                    new Vector2(Mathf.Max(48f, appliedLaneSpacing * 0.4f), stageHeight),
+                    new Vector2(Mathf.Max(18f, appliedLaneSpacing * 0.16f), stageHeight),
                     new Vector2(laneX, 0f));
             }
 
@@ -160,11 +164,96 @@ public class GameplayLaneLayout : MonoBehaviour
             }
         }
 
-        float hitlineJudgeDistance = Mathf.Max(80f, appliedLaneSpacing * hitlineJudgeDistanceRatio);
-        float touchRadius = Mathf.Max(80f, appliedLaneSpacing * touchRadiusRatio);
+        appliedHitlineJudgeDistance = Mathf.Max(80f, appliedLaneSpacing * hitlineJudgeDistanceRatio);
+        appliedTouchRadius = Mathf.Max(80f, appliedLaneSpacing * touchRadiusRatio);
 
-        chartNoteSpawner?.ApplyGameplayLayout(appliedLaneSpacing, appliedHitlineY, touchRadius);
-        noteManager?.ApplyHitlineLayout(appliedHitlineY, hitlineJudgeDistance);
+        chartNoteSpawner?.ApplyGameplayLayout(appliedLaneSpacing, appliedHitlineY, appliedTouchRadius);
+        noteManager?.ApplyHitlineLayout(appliedHitlineY, appliedHitlineJudgeDistance);
+    }
+
+    public float GetLaneAnchoredX(int laneIndex)
+    {
+        int activeLaneCount = Mathf.Max(1, laneCount);
+        laneIndex = Mathf.Clamp(laneIndex, 0, activeLaneCount - 1);
+
+        float firstLaneX = -((activeLaneCount - 1) * appliedLaneSpacing) * 0.5f;
+        return firstLaneX + laneIndex * appliedLaneSpacing;
+    }
+
+    public Vector2 GetLaneHitScreenPosition(int laneIndex)
+    {
+        if (canvas == null)
+            ResolveReferences();
+
+        if (canvas == null)
+            return new Vector2(Screen.width * 0.5f, Screen.height * 0.2f);
+
+        RectTransform canvasRect = canvas.transform as RectTransform;
+        if (canvasRect == null)
+            return new Vector2(Screen.width * 0.5f, Screen.height * 0.2f);
+
+        Vector2 localPosition = new Vector2(GetLaneAnchoredX(laneIndex), appliedHitlineY);
+        Vector3 worldPosition = canvasRect.TransformPoint(localPosition);
+        Camera targetCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : canvas.worldCamera;
+
+        return RectTransformUtility.WorldToScreenPoint(targetCamera, worldPosition);
+    }
+
+    public bool TryGetLaneIndexFromScreenPosition(
+        Vector2 screenPosition,
+        float laneWidthRatio,
+        out int laneIndex,
+        out float distanceToLaneCenter)
+    {
+        laneIndex = -1;
+        distanceToLaneCenter = float.MaxValue;
+
+        if (canvas == null)
+            ResolveReferences();
+
+        if (canvas == null || appliedLaneSpacing <= 0f)
+            return false;
+
+        RectTransform canvasRect = canvas.transform as RectTransform;
+        if (canvasRect == null)
+            return false;
+
+        Camera targetCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : canvas.worldCamera;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect,
+                screenPosition,
+                targetCamera,
+                out Vector2 localPosition))
+        {
+            return false;
+        }
+
+        int activeLaneCount = Mathf.Max(1, laneCount);
+        float nearestDistance = float.MaxValue;
+        int nearestLane = -1;
+
+        for (int i = 0; i < activeLaneCount; i++)
+        {
+            float distance = Mathf.Abs(localPosition.x - GetLaneAnchoredX(i));
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestLane = i;
+            }
+        }
+
+        float halfLaneWidth = appliedLaneSpacing * Mathf.Clamp01(laneWidthRatio) * 0.5f;
+        if (nearestLane < 0 || nearestDistance > halfLaneWidth)
+            return false;
+
+        laneIndex = nearestLane;
+        distanceToLaneCenter = nearestDistance;
+        return true;
     }
 
     private void ResolveReferences()

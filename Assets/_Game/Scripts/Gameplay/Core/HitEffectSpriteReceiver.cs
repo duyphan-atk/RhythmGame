@@ -7,6 +7,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
     [Header("References")]
     [SerializeField] private Canvas targetCanvas;
     [SerializeField] private NoteManager noteManager;
+    [SerializeField] private GameplayLaneLayout laneLayout;
 
     [Header("Judgment Sprites")]
     [SerializeField] private Sprite perfectSprite;
@@ -18,7 +19,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
     [SerializeField] private Vector2 centerOffset = new Vector2(0f, 80f);
 
     [Header("Visual")]
-    [SerializeField] private Vector2 effectSize = new Vector2(280f, 100f);
+    [SerializeField] private Vector2 effectSize = new Vector2(180f, 64f);
     [SerializeField] private float effectLifetime = 0.48f;
 
     [Header("Layered Effect")]
@@ -27,6 +28,13 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
     [SerializeField] private float stackedOffsetRadius = 28f;
     [SerializeField] private float stackedScaleStep = 0.04f;
     [SerializeField] private float stackedRotationRange = 4f;
+
+    [Header("Lane Flash")]
+    [SerializeField] private Sprite[] laneFlashSprites = new Sprite[0];
+    [SerializeField] private Vector2 laneFlashSize = new Vector2(190f, 150f);
+    [SerializeField] private float laneFlashFrameTime = 0.025f;
+    [SerializeField] private float laneFlashYOffset = 42f;
+    [SerializeField] private bool useLaneLayoutSize = true;
 
     [Header("Animation")]
     [SerializeField] private float startScale = 0.65f;
@@ -49,6 +57,9 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         if (noteManager == null)
             noteManager = FindFirstObjectByType<NoteManager>();
 
+        if (laneLayout == null)
+            laneLayout = FindFirstObjectByType<GameplayLaneLayout>();
+
         if (targetCanvas != null)
             canvasRect = targetCanvas.GetComponent<RectTransform>();
     }
@@ -58,6 +69,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         if (noteManager != null)
         {
             noteManager.OnNoteJudgedEvent += HandleNoteJudged;
+            noteManager.OnNoteFinishedEvent += HandleNoteFinished;
         }
     }
 
@@ -66,6 +78,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         if (noteManager != null)
         {
             noteManager.OnNoteJudgedEvent -= HandleNoteJudged;
+            noteManager.OnNoteFinishedEvent -= HandleNoteFinished;
         }
     }
 
@@ -78,9 +91,15 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
             return;
 
         SpawnCenterEffect(judgment);
+        SpawnLaneFlash(note);
     }
 
     public void OnNoteFinished(NoteBase note, NoteResult result)
+    {
+        HandleNoteFinished(note, result);
+    }
+
+    private void HandleNoteFinished(NoteBase note, NoteResult result)
     {
         if (note == null)
             return;
@@ -91,6 +110,68 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         {
             SpawnCenterEffect(HitJudgment.Miss);
         }
+    }
+
+    private void SpawnLaneFlash(NoteBase note)
+    {
+        if (targetCanvas == null || canvasRect == null)
+            return;
+
+        if (note == null || laneFlashSprites == null || laneFlashSprites.Length == 0)
+            return;
+
+        float laneX = laneLayout != null
+            ? laneLayout.GetLaneAnchoredX(note.LaneIndex)
+            : 0f;
+
+        float hitlineY = laneLayout != null
+            ? laneLayout.AppliedHitlineY
+            : -330f;
+
+        Vector2 size = laneFlashSize;
+        if (useLaneLayoutSize && laneLayout != null)
+        {
+            float laneWidth = Mathf.Max(1f, laneLayout.AppliedLaneSpacing);
+            size = new Vector2(laneWidth * 1.18f, laneWidth * 0.82f);
+        }
+
+        GameObject flashObject = new GameObject(
+            $"LANE_HIT_FLASH_L{note.LaneIndex}",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image)
+        );
+
+        flashObject.transform.SetParent(targetCanvas.transform, false);
+        flashObject.transform.SetAsLastSibling();
+
+        RectTransform rect = flashObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = new Vector2(laneX, hitlineY + laneFlashYOffset);
+
+        Image image = flashObject.GetComponent<Image>();
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+
+        StartCoroutine(AnimateLaneFlash(flashObject, image));
+    }
+
+    private IEnumerator AnimateLaneFlash(GameObject flashObject, Image image)
+    {
+        for (int i = 0; i < laneFlashSprites.Length; i++)
+        {
+            if (flashObject == null || image == null)
+                yield break;
+
+            image.sprite = laneFlashSprites[i];
+            yield return new WaitForSecondsRealtime(laneFlashFrameTime);
+        }
+
+        if (flashObject != null)
+            Destroy(flashObject);
     }
 
     private void SpawnCenterEffect(HitJudgment judgment)
