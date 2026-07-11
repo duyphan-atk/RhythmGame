@@ -1,4 +1,5 @@
 using UnityEngine;
+using Dypsloom.RhythmTimeline.Core;
 
 [CreateAssetMenu(fileName = "NewSong", menuName = "Data/SongData")]
 public class SongData : ScriptableObject
@@ -30,8 +31,14 @@ public class SongData : ScriptableObject
     public SongUnlockType unlockType = SongUnlockType.Free;
 
     [Header("Chart Integration")]
+    [Tooltip("Tên file JSON chart không kèm .json. Nếu trống sẽ tự tính từ AudioClip để giữ tương thích SongData cũ.")]
+    public string chartFileName;
+
     [Tooltip("AudioClip của bài nhạc này.")]
     public AudioClip audioClip;
+
+    [Tooltip("Timeline dùng để chỉnh chart của bài này. Nút Open Timeline trong Inspector sẽ mở trực tiếp asset này.")]
+    public RhythmTimelineAsset timelineAsset;
 
     /// <summary>
     /// Tên file JSON chart, tự sinh từ audioClip.name.
@@ -42,6 +49,7 @@ public class SongData : ScriptableObject
     {
         get
         {
+            if (!string.IsNullOrWhiteSpace(chartFileName)) return chartFileName;
             if (audioClip == null) return string.Empty;
             return "chart_" + SanitizeForFileName(audioClip.name);
         }

@@ -18,7 +18,9 @@ public class ResultPro : MonoBehaviour
     public float scoreRollTime = 1.2f;
     public float rankStampTime = 0.2f;
 
-    [Header("Mock Data (Test)")]
+    [Header("Preview Data")]
+    [Tooltip("Chỉ dùng khi mở riêng scene score để xem UI. Gameplay sẽ gọi Show() với số liệu thật.")]
+    [SerializeField] private bool playOnStartForPreview;
     public int targetPerfect = 100;
     public int targetGood = 0;
     public int targetBad = 0;
@@ -26,12 +28,13 @@ public class ResultPro : MonoBehaviour
     public int targetMaxCombo = 100;
 
     private int calculatedTotalScore;
+    private float calculatedAccuracy;
     private bool isRainbowRank = false;
 
     void Start()
     {
-        ResetUI();
-        StartCoroutine(PlayResultSequence());
+        if (playOnStartForPreview)
+            Show(new GameplayResultData(targetPerfect, targetGood, targetBad, targetMiss, targetMaxCombo));
     }
 
     void Update()
@@ -46,6 +49,18 @@ public class ResultPro : MonoBehaviour
             rainbowColor.a = rankText.alpha;
             rankText.color = rainbowColor;
         }
+    }
+
+    public void Show(GameplayResultData data)
+    {
+        StopAllCoroutines();
+        targetPerfect = data.perfect;
+        targetGood = data.great;
+        targetBad = data.good;
+        targetMiss = data.miss;
+        targetMaxCombo = data.maxCombo;
+        ResetUI();
+        StartCoroutine(PlayResultSequence());
     }
 
     void ResetUI()
@@ -65,13 +80,12 @@ public class ResultPro : MonoBehaviour
 
     IEnumerator PlayResultSequence()
     {
-        // Tính tổng điểm. Giả định max điểm là 1,000,000 (100% Perfect)
+        // Perfect = 100%, Great = 75%, Good = 50%, Miss = 0%.
         int totalNotes = targetPerfect + targetGood + targetBad + targetMiss;
         if (totalNotes > 0)
         {
-            float accuracy = ((float)targetPerfect + (targetGood * 0.7f)) / totalNotes * 900000f;
-            float combo = ((float)targetMaxCombo / totalNotes) * 100000f;
-            calculatedTotalScore = Mathf.RoundToInt(accuracy + combo);
+            calculatedAccuracy = (targetPerfect + targetGood * 0.75f + targetBad * 0.5f) / totalNotes;
+            calculatedTotalScore = Mathf.RoundToInt(calculatedAccuracy * 1000000f);
         }
 
         // 1. Chạy chỉ số phụ
@@ -101,33 +115,33 @@ public class ResultPro : MonoBehaviour
     {
         isRainbowRank = false;
 
-        if (calculatedTotalScore >= 1000000)
+        if (calculatedAccuracy >= 0.9999f)
         {
             isRainbowRank = true;
             rankColor = Color.white; 
             rankName = "SSS";
         }
-        else if (calculatedTotalScore >= 980000)
+        else if (calculatedAccuracy >= 0.98f)
         {
             rankColor = new Color(1f, 0.25f, 0f); 
             rankName = "SS";
         }
-        else if (calculatedTotalScore >= 950000)
+        else if (calculatedAccuracy >= 0.95f)
         {
             rankColor = new Color(1f, 0.55f, 0f); 
             rankName = "S";
         }
-        else if (calculatedTotalScore >= 900000)
+        else if (calculatedAccuracy >= 0.90f)
         {
             rankColor = Color.yellow; 
             rankName = "A";
         }
-        else if (calculatedTotalScore >= 800000)
+        else if (calculatedAccuracy >= 0.80f)
         {
             rankColor = new Color(0.6f, 0.2f, 0.8f); 
             rankName = "B";
         }
-        else if (calculatedTotalScore >= 700000)
+        else if (calculatedAccuracy >= 0.70f)
         {
             rankColor = Color.green; 
             rankName = "C";

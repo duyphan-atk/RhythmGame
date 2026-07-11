@@ -143,7 +143,7 @@ public class UIManager : MonoBehaviour
 
     // --- LOGIC GAMEPLAY ---
     public void ToggleSkillDisplay() { isSkillDisplayEnabled = !isSkillDisplayEnabled; textSkillDisplay.text = isSkillDisplayEnabled ? "Enabled" : "Disabled"; }
-    public void ChangeNoteSpeed(float amount) { currentNoteSpeed = Mathf.Clamp(currentNoteSpeed + amount, 1.0f, 6.5f); textNoteSpeed.text = currentNoteSpeed.ToString("F1"); }
+    public void ChangeNoteSpeed(float amount) { currentNoteSpeed = Mathf.Clamp(currentNoteSpeed + amount, RuntimeGameplaySettings.MinNoteSpeedSetting, RuntimeGameplaySettings.MaxNoteSpeedSetting); if (textNoteSpeed != null) textNoteSpeed.text = currentNoteSpeed.ToString("F1"); RuntimeGameplaySettings.NoteSpeedMultiplier = currentNoteSpeed; RuntimeGameplaySettings.Save(); }
     public void TogglePauseType() { pauseTypeIndex = (pauseTypeIndex + 1) % pauseTypes.Length; textPauseType.text = pauseTypes[pauseTypeIndex]; }
     public void ToggleStaminaNotif() { isStaminaNotifEnabled = !isStaminaNotifEnabled; textStaminaNotif.text = isStaminaNotifEnabled ? "Enabled" : "Disabled"; }
     public void TogglePureLateEarly() { isPureLateEarlyEnabled = !isPureLateEarlyEnabled; textPureLateEarly.text = isPureLateEarlyEnabled ? "Enabled" : "Disabled"; }
@@ -151,9 +151,9 @@ public class UIManager : MonoBehaviour
     public void ToggleInviteNotif() { isInviteNotifEnabled = !isInviteNotifEnabled; textInviteNotif.text = isInviteNotifEnabled ? "Enabled" : "Disabled"; }
 
     // --- LOGIC AUDIO ---
-    public void ChangeVolume(int amount) { currentVolume = Mathf.Clamp(currentVolume + amount, 0, 100); textNoteVolume.text = currentVolume + "%"; }
-    public void ChangeAudioOffset(int amount) { currentOffset = Mathf.Clamp(currentOffset + amount, -500, 1000); textOffset.text = currentOffset.ToString(); }
-    public void ToggleAudioPreset() { isHeadphonesPreset = !isHeadphonesPreset; textAudioPreset.text = isHeadphonesPreset ? "🎧 Headphones" : "🔊 Speaker"; }
+    public void ChangeVolume(int amount) { currentVolume = Mathf.Clamp(currentVolume + amount, 0, 100); if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%"; RuntimeGameplaySettings.MusicVolumePercent = currentVolume; RuntimeGameplaySettings.Save(); }
+    public void ChangeAudioOffset(int amount) { currentOffset = Mathf.Clamp(currentOffset + amount, -500, 1000); if (textOffset != null) textOffset.text = currentOffset.ToString(); RuntimeGameplaySettings.AudioOffsetMs = currentOffset; RuntimeGameplaySettings.Save(); }
+    public void ToggleAudioPreset() { isHeadphonesPreset = !isHeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker"; RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset; RuntimeGameplaySettings.Save(); }
 
     // --- LOGIC VISUAL ---
     public void ToggleGraphicsQuality() { qualityIndex = (qualityIndex + 1) % qualityLevels.Length; textGraphicsQuality.text = qualityLevels[qualityIndex]; }
@@ -167,15 +167,15 @@ public class UIManager : MonoBehaviour
     private void SaveSettings()
     {
         PlayerPrefs.SetInt("SkillDisplay", isSkillDisplayEnabled ? 1 : 0);
-        PlayerPrefs.SetFloat("NoteSpeed", currentNoteSpeed);
+        RuntimeGameplaySettings.NoteSpeedMultiplier = currentNoteSpeed;
         PlayerPrefs.SetInt("PauseType", pauseTypeIndex);
         PlayerPrefs.SetInt("StaminaNotif", isStaminaNotifEnabled ? 1 : 0);
         PlayerPrefs.SetInt("PureLateEarly", isPureLateEarlyEnabled ? 1 : 0);
         PlayerPrefs.SetInt("ShowPotential", isShowPotentialEnabled ? 1 : 0);
         PlayerPrefs.SetInt("InviteNotif", isInviteNotifEnabled ? 1 : 0);
-        PlayerPrefs.SetInt("NoteVolume", currentVolume);
-        PlayerPrefs.SetInt("AudioOffset", currentOffset);
-        PlayerPrefs.SetInt("AudioPreset", isHeadphonesPreset ? 1 : 0);
+        RuntimeGameplaySettings.MusicVolumePercent = currentVolume;
+        RuntimeGameplaySettings.AudioOffsetMs = currentOffset;
+        RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset;
         // Lưu dữ liệu Visual
         PlayerPrefs.SetInt("VisualQuality", qualityIndex);
         PlayerPrefs.SetInt("VisualShowTouches", isShowTouchesEnabled ? 1 : 0);
@@ -188,23 +188,23 @@ public class UIManager : MonoBehaviour
 
     private void LoadSettings()
     {
-        currentNoteSpeed = PlayerPrefs.GetFloat("NoteSpeed", 1.0f); textNoteSpeed.text = currentNoteSpeed.ToString("F1");
-        isSkillDisplayEnabled = PlayerPrefs.GetInt("SkillDisplay", 1) == 1; textSkillDisplay.text = isSkillDisplayEnabled ? "Enabled" : "Disabled";
-        pauseTypeIndex = PlayerPrefs.GetInt("PauseType", 0); textPauseType.text = pauseTypes[pauseTypeIndex];
-        isStaminaNotifEnabled = PlayerPrefs.GetInt("StaminaNotif", 0) == 1; textStaminaNotif.text = isStaminaNotifEnabled ? "Enabled" : "Disabled";
-        isPureLateEarlyEnabled = PlayerPrefs.GetInt("PureLateEarly", 1) == 1; textPureLateEarly.text = isPureLateEarlyEnabled ? "Enabled" : "Disabled";
-        isShowPotentialEnabled = PlayerPrefs.GetInt("ShowPotential", 1) == 1; textShowPotential.text = isShowPotentialEnabled ? "Enabled" : "Disabled";
-        isInviteNotifEnabled = PlayerPrefs.GetInt("InviteNotif", 1) == 1; textInviteNotif.text = isInviteNotifEnabled ? "Enabled" : "Disabled";
-        currentVolume = PlayerPrefs.GetInt("NoteVolume", 100); textNoteVolume.text = currentVolume + "%";
-        currentOffset = PlayerPrefs.GetInt("AudioOffset", 0); textOffset.text = currentOffset.ToString();
-        isHeadphonesPreset = PlayerPrefs.GetInt("AudioPreset", 0) == 1; textAudioPreset.text = isHeadphonesPreset ? "🎧 Headphones" : "🔊 Speaker";
+        currentNoteSpeed = RuntimeGameplaySettings.NoteSpeedMultiplier; if (textNoteSpeed != null) textNoteSpeed.text = currentNoteSpeed.ToString("F1");
+        isSkillDisplayEnabled = PlayerPrefs.GetInt("SkillDisplay", 1) == 1; if (textSkillDisplay != null) textSkillDisplay.text = isSkillDisplayEnabled ? "Enabled" : "Disabled";
+        pauseTypeIndex = PlayerPrefs.GetInt("PauseType", 0); if (textPauseType != null) textPauseType.text = pauseTypes[pauseTypeIndex];
+        isStaminaNotifEnabled = PlayerPrefs.GetInt("StaminaNotif", 0) == 1; if (textStaminaNotif != null) textStaminaNotif.text = isStaminaNotifEnabled ? "Enabled" : "Disabled";
+        isPureLateEarlyEnabled = PlayerPrefs.GetInt("PureLateEarly", 1) == 1; if (textPureLateEarly != null) textPureLateEarly.text = isPureLateEarlyEnabled ? "Enabled" : "Disabled";
+        isShowPotentialEnabled = PlayerPrefs.GetInt("ShowPotential", 1) == 1; if (textShowPotential != null) textShowPotential.text = isShowPotentialEnabled ? "Enabled" : "Disabled";
+        isInviteNotifEnabled = PlayerPrefs.GetInt("InviteNotif", 1) == 1; if (textInviteNotif != null) textInviteNotif.text = isInviteNotifEnabled ? "Enabled" : "Disabled";
+        currentVolume = RuntimeGameplaySettings.MusicVolumePercent; if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%";
+        currentOffset = RuntimeGameplaySettings.AudioOffsetMs; if (textOffset != null) textOffset.text = currentOffset.ToString();
+        isHeadphonesPreset = RuntimeGameplaySettings.HeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker";
         // Tải dữ liệu Visual
-        qualityIndex = PlayerPrefs.GetInt("VisualQuality", 1); textGraphicsQuality.text = qualityLevels[qualityIndex];
-        isShowTouchesEnabled = PlayerPrefs.GetInt("VisualShowTouches", 0) == 1; textShowTouches.text = isShowTouchesEnabled ? "Enabled" : "Disabled";
-        storySpeedIndex = PlayerPrefs.GetInt("VisualStorySpeed", 0); textStoryTextSpeed.text = storySpeeds[storySpeedIndex];
-        isColorblindModeEnabled = PlayerPrefs.GetInt("VisualColorblind", 0) == 1; textColorblindMode.text = isColorblindModeEnabled ? "Enabled" : "Disabled";
-        frpmIndex = PlayerPrefs.GetInt("VisualFRPM", 0); textFRPMIndicator.text = frpmPositions[frpmIndex];
-        lateEarlyPosIndex = PlayerPrefs.GetInt("VisualLateEarlyPos", 0); textLateEarlyPosition.text = lateEarlyPositions[lateEarlyPosIndex];
+        qualityIndex = PlayerPrefs.GetInt("VisualQuality", 1); if (textGraphicsQuality != null) textGraphicsQuality.text = qualityLevels[qualityIndex];
+        isShowTouchesEnabled = PlayerPrefs.GetInt("VisualShowTouches", 0) == 1; if (textShowTouches != null) textShowTouches.text = isShowTouchesEnabled ? "Enabled" : "Disabled";
+        storySpeedIndex = PlayerPrefs.GetInt("VisualStorySpeed", 0); if (textStoryTextSpeed != null) textStoryTextSpeed.text = storySpeeds[storySpeedIndex];
+        isColorblindModeEnabled = PlayerPrefs.GetInt("VisualColorblind", 0) == 1; if (textColorblindMode != null) textColorblindMode.text = isColorblindModeEnabled ? "Enabled" : "Disabled";
+        frpmIndex = PlayerPrefs.GetInt("VisualFRPM", 0); if (textFRPMIndicator != null) textFRPMIndicator.text = frpmPositions[frpmIndex];
+        lateEarlyPosIndex = PlayerPrefs.GetInt("VisualLateEarlyPos", 0); if (textLateEarlyPosition != null) textLateEarlyPosition.text = lateEarlyPositions[lateEarlyPosIndex];
     }
 
     public void PauseGame() 

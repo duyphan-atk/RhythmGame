@@ -20,13 +20,13 @@ public class GameplayLaneLayout : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] private int laneCount = 4;
-    [SerializeField, Range(0.12f, 0.8f)] private float laneAreaWidthRatio = 0.24f;
-    [SerializeField] private float minLaneSpacing = 78f;
-    [SerializeField] private float maxLaneSpacing = 116f;
-    [SerializeField, Range(0.05f, 0.48f)] private float hitlineFromBottomRatio = 0.12f;
+    [SerializeField, Range(0.12f, 0.8f)] private float laneAreaWidthRatio = 0.42f;
+    [SerializeField] private float minLaneSpacing = 118f;
+    [SerializeField] private float maxLaneSpacing = 190f;
+    [SerializeField, Range(0.05f, 0.48f)] private float hitlineFromBottomRatio = 0.16f;
     [SerializeField] private float hitlineOffsetY = 0f;
-    [SerializeField] private float hitlineJudgeDistanceRatio = 0.68f;
-    [SerializeField] private float touchRadiusRatio = 0.7f;
+    [SerializeField] private float hitlineJudgeDistanceRatio = 0.78f;
+    [SerializeField] private float touchRadiusRatio = 0.95f;
     [SerializeField] private float verticalBleed = 96f;
 
     [Header("Debug")]
@@ -135,7 +135,7 @@ public class GameplayLaneLayout : MonoBehaviour
         float firstLaneX = -((activeLaneCount - 1) * appliedLaneSpacing) * 0.5f;
         float laneBandWidth = activeLaneCount * appliedLaneSpacing;
         float stageHeight = canvasSize.y + verticalBleed * 2f;
-        float sideWidth = Mathf.Clamp(appliedLaneSpacing * 0.34f, 34f, 58f);
+        float sideWidth = Mathf.Clamp(appliedLaneSpacing * 0.28f, 36f, 62f);
         float stageWidth = laneBandWidth + sideWidth * 2f;
         float sideX = laneBandWidth * 0.5f + sideWidth * 0.5f;
 
@@ -164,8 +164,8 @@ public class GameplayLaneLayout : MonoBehaviour
             }
         }
 
-        appliedHitlineJudgeDistance = Mathf.Max(80f, appliedLaneSpacing * hitlineJudgeDistanceRatio);
-        appliedTouchRadius = Mathf.Max(80f, appliedLaneSpacing * touchRadiusRatio);
+        appliedHitlineJudgeDistance = Mathf.Max(100f, appliedLaneSpacing * hitlineJudgeDistanceRatio);
+        appliedTouchRadius = Mathf.Max(110f, appliedLaneSpacing * touchRadiusRatio);
 
         chartNoteSpawner?.ApplyGameplayLayout(appliedLaneSpacing, appliedHitlineY, appliedTouchRadius);
         noteManager?.ApplyHitlineLayout(appliedHitlineY, appliedHitlineJudgeDistance);

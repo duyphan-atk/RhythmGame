@@ -70,6 +70,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         {
             noteManager.OnNoteJudgedEvent += HandleNoteJudged;
             noteManager.OnNoteFinishedEvent += HandleNoteFinished;
+            noteManager.OnNoteSustainEvent += HandleNoteSustain;
         }
     }
 
@@ -79,6 +80,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         {
             noteManager.OnNoteJudgedEvent -= HandleNoteJudged;
             noteManager.OnNoteFinishedEvent -= HandleNoteFinished;
+            noteManager.OnNoteSustainEvent -= HandleNoteSustain;
         }
     }
 
@@ -110,6 +112,11 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         {
             SpawnCenterEffect(HitJudgment.Miss);
         }
+    }
+
+    private void HandleNoteSustain(NoteBase note)
+    {
+        SpawnLaneFlash(note);
     }
 
     private void SpawnLaneFlash(NoteBase note)

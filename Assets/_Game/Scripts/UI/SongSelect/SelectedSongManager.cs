@@ -13,6 +13,9 @@ public class SelectedSongManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            if (transform.parent != null)
+                transform.SetParent(null);
+
             DontDestroyOnLoad(gameObject); // Giữ Object này không bị xóa khi đổi Scene
         }
         else

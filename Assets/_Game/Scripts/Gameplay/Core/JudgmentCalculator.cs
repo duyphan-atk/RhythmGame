@@ -4,9 +4,9 @@ using UnityEngine;
 public class JudgmentWindow
 {
     [Header("Judgment Window In Seconds")]
-    public float perfectWindow = 0.05f; // 50ms
-    public float greatWindow = 0.09f;   // 90ms
-    public float goodWindow = 0.15f;    // 150ms
+    public float perfectWindow = 0.065f; // 65ms
+    public float greatWindow = 0.115f;   // 115ms
+    public float goodWindow = 0.19f;     // 190ms
 
     public HitJudgment Judge(float inputTime, float hitTime, out float deltaMs)
     {

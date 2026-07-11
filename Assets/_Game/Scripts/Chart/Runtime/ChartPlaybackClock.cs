@@ -51,6 +51,14 @@ public class ChartPlaybackClock : MonoBehaviour
         audioOffset = offset;
     }
 
+    public void SetVolume(float volume01)
+    {
+        if (audioSource == null)
+            return;
+
+        audioSource.volume = Mathf.Clamp01(volume01);
+    }
+
     /// <summary>
     /// Đổi AudioClip đang phát. Gọi trước Play().
     /// ChartNoteSpawner gọi method này khi SelectedSongManager có bài đang chọn.
