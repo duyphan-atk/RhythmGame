@@ -33,6 +33,7 @@ public class NoteManager : MonoBehaviour
     [Header("PC Test Input")]
     [Tooltip("Cho phép giả lập 4 lane bằng bàn phím trong Play Mode.")]
     [SerializeField] private bool enableKeyboardLaneInput = true;
+    [SerializeField] private bool ignoreEditorMouseWhenTouchActive = true;
     [SerializeField] private GameplayLaneLayout laneLayout;
     [SerializeField] private KeyCode lane0Key = KeyCode.A;
     [SerializeField] private KeyCode lane1Key = KeyCode.S;
@@ -49,6 +50,7 @@ public class NoteManager : MonoBehaviour
 
     public event Action<NoteBase, NoteResult> OnNoteFinishedEvent;
     public event Action<NoteBase, HitJudgment, float> OnNoteJudgedEvent;
+    public event Action<NoteBase> OnNoteSustainEvent;
 
     public float CurrentTime => currentTime;
 
@@ -156,6 +158,14 @@ public class NoteManager : MonoBehaviour
         );
     }
 
+    public void NotifySustainEffect(NoteBase note)
+    {
+        if (note == null)
+            return;
+
+        OnNoteSustainEvent?.Invoke(note);
+    }
+
     private void TickNotes()
     {
         for (int i = activeNotes.Count - 1; i >= 0; i--)
@@ -236,6 +246,9 @@ public class NoteManager : MonoBehaviour
 #if UNITY_EDITOR
     private void HandleMouseInputForEditor()
     {
+        if (ignoreEditorMouseWhenTouchActive && Input.touchCount > 0)
+            return;
+
         int mouseFingerId = -999;
         Vector2 mousePosition = Input.mousePosition;
         Vector2 delta = mousePosition - lastMousePosition;

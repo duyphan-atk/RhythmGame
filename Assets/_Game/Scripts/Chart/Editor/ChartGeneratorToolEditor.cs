@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +17,7 @@ public class ChartGeneratorToolEditor : Editor
     private static float _newNoteDuration = 1f;
     private static FlickDirection _newFlickDirection = FlickDirection.Any;
     private static string _newSlidePath = string.Empty;
+    private static SongData _selectedSongData;
 
     // Cache danh sách SongData để không load lại mỗi frame
     private SongData[] _allSongs;
@@ -112,6 +114,30 @@ public class ChartGeneratorToolEditor : Editor
         if (GUILayout.Button("Save Edited Chart"))       tool.SaveEditedChart();
 
         GUILayout.Space(10);
+        EditorGUILayout.LabelField("── Timing Offset ───────────────────", EditorStyles.boldLabel);
+
+        float newOffset = EditorGUILayout.FloatField("Chart Offset Seconds", tool.ChartOffsetSeconds);
+        if (!Mathf.Approximately(newOffset, tool.ChartOffsetSeconds))
+        {
+            Undo.RecordObject(tool, "Edit Chart Offset");
+            tool.SetChartOffsetSeconds(newOffset);
+            EditorUtility.SetDirty(tool);
+        }
+
+        EditorGUILayout.HelpBox(
+            "Âm = note trễ hơn nhạc. Dương = note sớm hơn nhạc. Nếu note đang tới trước nhạc, nhập giá trị âm như -0.08.",
+            MessageType.Info);
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            if (GUILayout.Button("Load Offset From JSON"))
+                tool.LoadChartOffsetFromSavedChart();
+
+            if (GUILayout.Button("Save Offset To JSON"))
+                tool.SaveChartOffsetToSavedChart();
+        }
+
+        GUILayout.Space(10);
         EditorGUILayout.LabelField("── Visual Test ─────────────────────", EditorStyles.boldLabel);
 
         if (GUILayout.Button("Preview Note Visual Test"))
@@ -138,8 +164,23 @@ public class ChartGeneratorToolEditor : Editor
             typeof(RhythmTimelineAsset),
             false);
 
+        _selectedSongData = (SongData)EditorGUILayout.ObjectField(
+            "SongData Asset",
+            _selectedSongData,
+            typeof(SongData),
+            false);
+
         if (_selectedTimeline == null && Selection.activeObject is RhythmTimelineAsset selectedAsset)
             _selectedTimeline = selectedAsset;
+
+        if (_selectedSongData == null && Selection.activeObject is SongData selectedSongData)
+            _selectedSongData = selectedSongData;
+
+        using (new EditorGUI.DisabledScope(_selectedSongData == null))
+        {
+            if (GUILayout.Button("Create Timeline From SongData Asset"))
+                CreateTimelineFromSongData(tool, _selectedSongData);
+        }
 
         if (GUILayout.Button("Create Timeline From Preview"))
             CreateTimelineFromPreview(tool);
@@ -219,6 +260,163 @@ public class ChartGeneratorToolEditor : Editor
         CreateTimelineAsset(tool, chart);
     }
 
+    private void CreateTimelineFromSongData(ChartGeneratorTool tool, SongData songData)
+    {
+        if (songData == null)
+            return;
+
+        if (!TryResolveSongDataChartFileName(songData, out string resolvedChartFileName))
+        {
+            EditorUtility.DisplayDialog(
+                "Cannot Load Chart",
+                $"Could not find JSON chart for SongData '{songData.name}'.\n\n" +
+                "Try importing the osu!mania beatmap again, or enter the JSON chart file name in SongData > Chart File Name.",
+                "OK");
+            return;
+        }
+
+        Undo.RecordObject(tool, "Create Timeline From Selected SongData");
+        tool.ApplySongData(songData);
+        SetToolSaveFileName(tool, resolvedChartFileName);
+        EditorUtility.SetDirty(tool);
+
+        ChartNoteSpawner spawner = FindFirstObjectByType<ChartNoteSpawner>();
+        if (spawner != null)
+        {
+            Undo.RecordObject(spawner, "Sync Selected SongData To Spawner");
+            spawner.SetChartFileName(resolvedChartFileName);
+            EditorUtility.SetDirty(spawner);
+        }
+
+        CreateTimelineFromSavedChart(tool);
+    }
+
+    private static bool TryResolveSongDataChartFileName(SongData songData, out string chartFileName)
+    {
+        chartFileName = string.Empty;
+
+        string[] candidates =
+        {
+            songData.ComputedChartFileName,
+            StripGeneratedSuffix(songData.ComputedChartFileName),
+            BuildChartNameFromSongTitle(songData)
+        };
+
+        foreach (string candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            if (BeatmapParser.TryLoadChart(candidate, out _))
+            {
+                chartFileName = candidate;
+                SaveResolvedChartName(songData, candidate);
+                return true;
+            }
+        }
+
+        string matchedFileName = FindMatchingPersistentChartFile(songData);
+        if (string.IsNullOrWhiteSpace(matchedFileName))
+            return false;
+
+        chartFileName = matchedFileName;
+        SaveResolvedChartName(songData, matchedFileName);
+        return true;
+    }
+
+    private static string StripGeneratedSuffix(string chartFileName)
+    {
+        if (string.IsNullOrWhiteSpace(chartFileName))
+            return string.Empty;
+
+        int underscoreIndex = chartFileName.LastIndexOf('_');
+        if (underscoreIndex < 0 || underscoreIndex >= chartFileName.Length - 1)
+            return chartFileName;
+
+        string suffix = chartFileName[(underscoreIndex + 1)..];
+        return int.TryParse(suffix, out _) ? chartFileName[..underscoreIndex] : chartFileName;
+    }
+
+    private static string BuildChartNameFromSongTitle(SongData songData)
+    {
+        string title = songData.SongTitle;
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        int bracketIndex = title.LastIndexOf('[');
+        if (bracketIndex > 0)
+            title = title[..bracketIndex];
+
+        return "chart_" + SongData.SanitizeForFileName(title.Trim());
+    }
+
+    private static string FindMatchingPersistentChartFile(SongData songData)
+    {
+        string folder = Application.persistentDataPath;
+        if (!Directory.Exists(folder))
+            return string.Empty;
+
+        string target = NormalizeForMatch(songData.SongTitle);
+        string bestMatch = string.Empty;
+        int bestScore = 0;
+
+        foreach (string path in Directory.GetFiles(folder, "chart_*.json"))
+        {
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            string normalized = NormalizeForMatch(fileName);
+            int score = CountSharedPrefix(target, normalized);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestMatch = fileName;
+            }
+        }
+
+        return bestScore >= 12 ? bestMatch : string.Empty;
+    }
+
+    private static string NormalizeForMatch(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return new string(value
+            .ToLowerInvariant()
+            .Replace("chart_", string.Empty)
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+    }
+
+    private static int CountSharedPrefix(string left, string right)
+    {
+        int max = Mathf.Min(left.Length, right.Length);
+        int count = 0;
+
+        while (count < max && left[count] == right[count])
+            count++;
+
+        return count;
+    }
+
+    private static void SaveResolvedChartName(SongData songData, string chartFileName)
+    {
+        if (songData == null || songData.chartFileName == chartFileName)
+            return;
+
+        Undo.RecordObject(songData, "Resolve SongData Chart File Name");
+        songData.chartFileName = chartFileName;
+        EditorUtility.SetDirty(songData);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void SetToolSaveFileName(ChartGeneratorTool tool, string chartFileName)
+    {
+        SerializedObject serializedTool = new SerializedObject(tool);
+        serializedTool.FindProperty("saveFileName").stringValue = chartFileName;
+        serializedTool.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     private void CreateTimelineAsset(ChartGeneratorTool tool, ChartData chart)
     {
         string safeName = string.IsNullOrWhiteSpace(chart.songName)
@@ -263,6 +461,7 @@ public class ChartGeneratorToolEditor : Editor
         if (chart == null)
             return;
 
+        chart.offset = tool.ChartOffsetSeconds;
         ChartSaveLoad.Save(chart, tool.SaveFileName);
         tool.PreviewChart(chart);
 

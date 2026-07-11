@@ -6,6 +6,7 @@ public class HoldNote : NoteBase
     [Header("Hold Visual")]
     [SerializeField] private Image holdFillImage;
     [SerializeField] private RectTransform holdFillRect;
+    [SerializeField, Min(0.03f)] private float sustainEffectInterval = 0.12f;
 
     private readonly HoldNoteStateMachine stateMachine = new HoldNoteStateMachine();
 
@@ -13,6 +14,9 @@ public class HoldNote : NoteBase
     private bool judgmentEffectShown;
     private float baseVisualWidth;
     private float baseVisualHeight;
+    private float runtimeHitlineY;
+    private float runtimeScrollSpeed;
+    private float nextSustainEffectTime;
 
     protected override void Awake()
     {
@@ -26,6 +30,9 @@ public class HoldNote : NoteBase
 
         stateMachine.Reset();
         judgmentEffectShown = false;
+        runtimeHitlineY = data.hitlineY;
+        runtimeScrollSpeed = data.scrollSpeed;
+        nextSustainEffectTime = 0f;
 
         CacheBaseVisualSize();
         ApplyDurationVisual(data.scrollSpeed);
@@ -38,9 +45,15 @@ public class HoldNote : NoteBase
 
     public override void ApplyScrollSpeed(float newScrollSpeed)
     {
+        runtimeScrollSpeed = newScrollSpeed;
         base.ApplyScrollSpeed(newScrollSpeed);
-        ApplyDurationVisual(newScrollSpeed);
-        SetHoldProgress(stateMachine.Progress01);
+
+        if (stateMachine.IsHolding())
+            ApplyRemainingDurationVisual(owner != null ? owner.CurrentTime : hitTime);
+        else
+            ApplyDurationVisual(newScrollSpeed);
+
+        SetHoldProgress(stateMachine.IsHolding() ? 1f : stateMachine.Progress01);
     }
 
     public override void OnPointerBegin(NotePointer pointer)
@@ -56,7 +69,14 @@ public class HoldNote : NoteBase
 
         SetColor(Color.yellow);
         SetHoldFillColor(Color.yellow);
-        SetHoldProgress(stateMachine.Progress01);
+        nextSustainEffectTime = currentTime;
+
+        if (movement != null)
+            movement.LockY(runtimeHitlineY);
+
+        ApplyRemainingDurationVisual(currentTime);
+        SetHoldProgress(1f);
+        owner?.NotifySustainEffect(this);
     }
 
     public override void Tick(float currentTime)
@@ -70,9 +90,14 @@ public class HoldNote : NoteBase
 
         if (stateMachine.IsHolding())
         {
+            if (movement != null)
+                movement.LockY(runtimeHitlineY);
+
             SetColor(Color.yellow);
             SetHoldFillColor(Color.yellow);
-            SetHoldProgress(stateMachine.Progress01);
+            ApplyRemainingDurationVisual(currentTime);
+            SetHoldProgress(1f);
+            NotifySustainEffectIfDue(currentTime);
             return;
         }
 
@@ -95,6 +120,9 @@ public class HoldNote : NoteBase
         {
             SetHoldFillColor(Color.red);
             SetColor(Color.red);
+
+            if (movement != null)
+                movement.UnlockY();
 
             Fail(NoteResult.ReleasedEarly);
             return;
@@ -135,6 +163,9 @@ public class HoldNote : NoteBase
         SetHoldProgress(1f);
         SetHoldFillColor(Color.green);
         SetColor(Color.green);
+
+        if (movement != null)
+            movement.UnlockY();
 
         ShowJudgmentEffectOnce();
 
@@ -206,6 +237,26 @@ public class HoldNote : NoteBase
         rectTransform.sizeDelta = new Vector2(baseVisualWidth, baseVisualHeight + durationHeight);
     }
 
+    private void ApplyRemainingDurationVisual(float currentTime)
+    {
+        if (rectTransform == null)
+            rectTransform = GetComponent<RectTransform>();
+
+        if (rectTransform == null)
+            return;
+
+        if (baseVisualWidth <= 0f || baseVisualHeight <= 0f)
+            CacheBaseVisualSize();
+
+        float tailTime = hitTime + Mathf.Max(0f, duration);
+        float remainingSeconds = Mathf.Max(0f, tailTime - currentTime);
+        float remainingHeight = remainingSeconds * Mathf.Max(0f, runtimeScrollSpeed);
+
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.anchoredPosition = new Vector2(rectTransform.anchoredPosition.x, runtimeHitlineY);
+        rectTransform.sizeDelta = new Vector2(baseVisualWidth, baseVisualHeight + remainingHeight);
+    }
+
     private void CacheBaseVisualSize()
     {
         if (rectTransform == null)
@@ -236,5 +287,14 @@ public class HoldNote : NoteBase
     {
         if (holdFillImage != null)
             holdFillImage.color = color;
+    }
+
+    private void NotifySustainEffectIfDue(float currentTime)
+    {
+        if (owner == null || currentTime < nextSustainEffectTime)
+            return;
+
+        nextSustainEffectTime = currentTime + sustainEffectInterval;
+        owner.NotifySustainEffect(this);
     }
 }

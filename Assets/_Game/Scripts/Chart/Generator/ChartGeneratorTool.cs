@@ -9,11 +9,16 @@ public class ChartGeneratorTool : MonoBehaviour
     [Header("Save")]
     [SerializeField] private string saveFileName = "test_chart";
 
+    [Header("Timing")]
+    [Tooltip("Offset tổng thể lưu vào chart JSON. Âm = note trễ hơn nhạc, dương = note sớm hơn nhạc.")]
+    [SerializeField] private float chartOffsetSeconds = 0f;
+
     [Header("Preview Optional")]
     [SerializeField] private ChartVisualizer visualizer;
 
     public string SaveFileName => saveFileName;
     public AudioClip CurrentAudioClip => musicSource != null ? musicSource.clip : null;
+    public float ChartOffsetSeconds => chartOffsetSeconds;
 
     public void ApplySongData(SongData song)
     {
@@ -46,6 +51,34 @@ public class ChartGeneratorTool : MonoBehaviour
         Debug.Log($"ChartGeneratorTool: Đã chọn '{song._songTitle}' " +
                   $"| BPM={song._bpm} | Difficulty={song._difficulty} " +
                   $"| Chart='{song.ComputedChartFileName}'");
+
+        LoadChartOffsetFromSavedChart();
+    }
+
+    public void SetChartOffsetSeconds(float offsetSeconds)
+    {
+        chartOffsetSeconds = offsetSeconds;
+    }
+
+    public bool LoadChartOffsetFromSavedChart()
+    {
+        if (!BeatmapParser.TryLoadChart(saveFileName, out ChartData chart) || chart == null)
+            return false;
+
+        chartOffsetSeconds = chart.offset;
+        Debug.Log($"ChartGeneratorTool: Loaded chart offset = {chartOffsetSeconds:0.###}s");
+        return true;
+    }
+
+    public bool SaveChartOffsetToSavedChart()
+    {
+        if (!BeatmapParser.TryLoadChart(saveFileName, out ChartData chart) || chart == null)
+            return false;
+
+        chart.offset = chartOffsetSeconds;
+        ChartSaveLoad.Save(chart, saveFileName);
+        Debug.Log($"ChartGeneratorTool: Saved chart offset = {chartOffsetSeconds:0.###}s");
+        return true;
     }
 
     /// <summary>
@@ -84,7 +117,7 @@ public class ChartGeneratorTool : MonoBehaviour
             songName,
             generationSettings.bpm,
             songLength,
-            generationSettings.offset,
+            chartOffsetSeconds,
             generationSettings.laneCount,
             generationSettings.difficulty
         );
@@ -157,6 +190,7 @@ public class ChartGeneratorTool : MonoBehaviour
             return;
         }
 
+        chart.offset = chartOffsetSeconds;
         ChartSaveLoad.Save(chart, saveFileName);
 
         Debug.Log($"Saved edited chart: {chart.songName} | Notes: {chart.notes.Count}");
@@ -182,6 +216,7 @@ public class ChartGeneratorTool : MonoBehaviour
         }
 
         visualizer.Settings = generationSettings;
+        chartOffsetSeconds = chart.offset;
         visualizer.Draw(chart);
 
         Debug.Log($"Previewed chart: {chart.songName} | Notes: {chart.notes.Count}");

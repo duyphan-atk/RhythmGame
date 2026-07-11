@@ -9,7 +9,7 @@ public static class GameplayLaneUiBuilder
     private const string RootName = "RG Lane UI";
     private const string LaneFolder = "Assets/_Game/Sprites/GamePlay/Lane";
     private const int LaneCount = 4;
-    private const float LaneSpacing = 108f;
+    private const float LaneSpacing = 170f;
     private const float StageHeight = 770f;
     private const float LightHeight = 640f;
     private const float HitlineY = -330f;
@@ -37,7 +37,7 @@ public static class GameplayLaneUiBuilder
 
         Image shade = CreateImage(root, "Stage Shade", null);
         RectTransform shadeRect = shade.rectTransform;
-        Center(shadeRect, new Vector2(540f, StageHeight), new Vector2(0f, 0f));
+        Center(shadeRect, new Vector2(820f, StageHeight), new Vector2(0f, 0f));
         shade.color = new Color(0.02f, 0.015f, 0.06f, 0.62f);
         shade.raycastTarget = false;
 
@@ -47,8 +47,8 @@ public static class GameplayLaneUiBuilder
         Sprite bottom = LoadSprite("mania-stage-bottom.png");
         Sprite hint = LoadSprite("mania-stage-hint.png");
 
-        CreateStageSide(root, "Stage Left", left, -250f);
-        CreateStageSide(root, "Stage Right", right, 250f);
+        CreateStageSide(root, "Stage Left", left, -385f);
+        CreateStageSide(root, "Stage Right", right, 385f);
         RectTransform stageLeft = root.Find("Stage Left") as RectTransform;
         RectTransform stageRight = root.Find("Stage Right") as RectTransform;
 
@@ -61,7 +61,7 @@ public static class GameplayLaneUiBuilder
             float laneX = firstLaneX + i * LaneSpacing;
 
             Image laneLight = CreateImage(root, $"Lane {i} Light", light);
-            Center(laneLight.rectTransform, new Vector2(24f, LightHeight), new Vector2(laneX, 10f));
+            Center(laneLight.rectTransform, new Vector2(34f, LightHeight), new Vector2(laneX, 10f));
             laneLight.color = i % 2 == 0
                 ? new Color(0.95f, 0.82f, 1f, 0.22f)
                 : new Color(0.5f, 0.9f, 1f, 0.18f);

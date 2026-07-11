@@ -82,7 +82,7 @@ public class OsuManiaImportWindow : EditorWindow
 
         SongData songData = null;
         if (createSongData)
-            songData = CreateSongData(result, importedClip);
+            songData = CreateSongData(result, importedClip, chartFileName);
 
         SyncOpenScene(result.Chart, importedClip);
 
@@ -133,7 +133,10 @@ public class OsuManiaImportWindow : EditorWindow
         return clip;
     }
 
-    private static SongData CreateSongData(OsuManiaBeatmapParser.ImportResult result, AudioClip clip)
+    private static SongData CreateSongData(
+        OsuManiaBeatmapParser.ImportResult result,
+        AudioClip clip,
+        string importedChartFileName)
     {
         EnsureFolder(SongDataFolder);
 
@@ -148,6 +151,7 @@ public class OsuManiaImportWindow : EditorWindow
         song.songGroupId = SongData.SanitizeForFileName($"{result.Artist}_{result.Title}");
         song.difficultyLevel = Difficulty.Easy;
         song.unlockType = SongUnlockType.Free;
+        song.chartFileName = importedChartFileName;
         song.audioClip = clip;
 
         AssetDatabase.CreateAsset(song, path);

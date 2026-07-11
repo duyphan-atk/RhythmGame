@@ -10,8 +10,11 @@ public class NoteMovement : MonoBehaviour
 
     private RectTransform rectTransform;
     private bool initialized;
+    private bool lockY;
+    private float lockedY;
 
     public float HitTime => hitTime;
+    public float HitlineY => hitlineY;
     public float ScrollSpeed => scrollSpeed;
 
     private void Awake()
@@ -29,6 +32,7 @@ public class NoteMovement : MonoBehaviour
         pos.x = data.anchoredX;
         rectTransform.anchoredPosition = pos;
 
+        lockY = false;
         initialized = true;
     }
 
@@ -37,7 +41,7 @@ public class NoteMovement : MonoBehaviour
         if (!initialized)
             return;
 
-        float y = hitlineY + (hitTime - currentTime) * scrollSpeed;
+        float y = lockY ? lockedY : hitlineY + (hitTime - currentTime) * scrollSpeed;
 
         Vector2 pos = rectTransform.anchoredPosition;
         pos.y = y;
@@ -47,5 +51,16 @@ public class NoteMovement : MonoBehaviour
     public void ApplyScrollSpeed(float newScrollSpeed)
     {
         scrollSpeed = Mathf.Max(0f, newScrollSpeed);
+    }
+
+    public void LockY(float y)
+    {
+        lockY = true;
+        lockedY = y;
+    }
+
+    public void UnlockY()
+    {
+        lockY = false;
     }
 }

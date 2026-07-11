@@ -48,12 +48,15 @@ public class ChartNoteSpawner : MonoBehaviour
     [SerializeField] private bool enableScrollSpeedHotkeys = true;
     [SerializeField] private KeyCode increaseSpeedKey = KeyCode.F3;
     [SerializeField] private KeyCode decreaseSpeedKey = KeyCode.F4;
-    [SerializeField] private float scrollSpeedStep = 50f;
-    [SerializeField] private float minScrollSpeed = 120f;
-    [SerializeField] private float maxScrollSpeed = 1400f;
+    [SerializeField] private float scrollSpeedStep = 100f;
+    [SerializeField] private float minScrollSpeed = RuntimeGameplaySettings.MinScrollSpeed;
+    [SerializeField] private float maxScrollSpeed = RuntimeGameplaySettings.MaxScrollSpeed;
+    [SerializeField] private bool persistScrollSpeed = true;
     [SerializeField] private bool logScrollSpeedChanges = true;
 
     [Header("Timing")]
+    [Tooltip("Âm = note trễ hơn nhạc. Dùng để bù khi note đang tới trước beat.")]
+    [SerializeField] private float gameplayTimingOffsetSeconds = -0.08f;
     [SerializeField] private float preSpawnTime = 2f;
 
     [Header("Debug")]
@@ -68,10 +71,17 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private List<ChartNoteSpawnData> _spawnDataList;
     private readonly Dictionary<NoteType, Queue<NoteBase>> _typedPools = new();
+    private readonly HashSet<NoteBase> _pooledGeneratedNotes = new();
+    private readonly HashSet<NoteBase> _finishedRuntimeNotes = new();
     private int _nextSpawnIndex;
+    private int _finishedNoteCount;
     private bool _isReady;
+    private bool _chartFinished;
     private int _laneCount = 4;
     private bool _usingTypedPools;
+    private bool _listeningToNoteManager;
+
+    public event System.Action OnChartFinished;
 
     /// <summary>
     /// Đồng bộ chartFileName với SongData được chọn từ Editor dropdown.
@@ -93,6 +103,8 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void Start()
     {
+        LoadPersistedScrollSpeed();
+
         // ─── EDIT MODE: chỉ xem preview, không spawn runtime notes ───────────
         if (editMode)
         {
@@ -108,6 +120,8 @@ public class ChartNoteSpawner : MonoBehaviour
                            "Notes will not move. Assign NoteManager in the Inspector.");
             return;
         }
+
+        SubscribeToNoteManager();
 
         // Tắt preview Note Parent để runtime notes không bị chồng lên preview notes.
         if (previewNoteParentToDisable != null)
@@ -180,14 +194,19 @@ public class ChartNoteSpawner : MonoBehaviour
 
         if (playbackClock != null)
         {
-            playbackClock.SetOffset(loadedChart.offset);
+            float totalOffset = loadedChart.offset + RuntimeGameplaySettings.AudioOffsetSeconds;
+            playbackClock.SetOffset(totalOffset);
+            playbackClock.SetVolume(RuntimeGameplaySettings.MusicVolume01);
         }
 
-        Debug.Log($"ChartNoteSpawner: Applied chart offset: {loadedChart.offset}");
+        Debug.Log($"ChartNoteSpawner: Applied chart offset: {loadedChart.offset} | Settings offset: {RuntimeGameplaySettings.AudioOffsetSeconds} | Gameplay offset: {gameplayTimingOffsetSeconds}");
 
         ClearSpawnedNotes();
 
         _nextSpawnIndex = 0;
+        _finishedNoteCount = 0;
+        _finishedRuntimeNotes.Clear();
+        _chartFinished = false;
         _isReady = true;
 
         Debug.Log($"ChartNoteSpawner ready. Notes to spawn: {_spawnDataList.Count}");
@@ -214,7 +233,7 @@ public class ChartNoteSpawner : MonoBehaviour
             return;
         }
 
-        float songTime = playbackClock.SongTime;
+        float songTime = playbackClock.SongTime + gameplayTimingOffsetSeconds;
 
         // Sync NoteManager time với audio clock để NoteMovement tính đúng vị trí.
         // SetExternalTime() tắt internal clock của NoteManager, tránh drift.
@@ -237,6 +256,7 @@ public class ChartNoteSpawner : MonoBehaviour
             return;
 
         ApplyScrollSpeedToActiveNotes();
+        SavePersistedScrollSpeed();
 
         if (logScrollSpeedChanges)
             Debug.Log($"ChartNoteSpawner: Scroll speed = {scrollSpeed:F0}");
@@ -306,9 +326,8 @@ public class ChartNoteSpawner : MonoBehaviour
     {
         _usingTypedPools = true;
         _typedPools.Clear();
-
-        if (noteManager != null)
-            noteManager.OnNoteFinishedEvent += HandleGeneratedNoteFinished;
+        _pooledGeneratedNotes.Clear();
+        _finishedRuntimeNotes.Clear();
 
         int typeCount = System.Enum.GetValues(typeof(NoteType)).Length;
         int perTypePoolSize = Mathf.Max(4, Mathf.CeilToInt(initialPoolSize / (float)typeCount));
@@ -323,6 +342,7 @@ public class ChartNoteSpawner : MonoBehaviour
                 NoteBase note = CreateGeneratedNote(noteType);
                 note.gameObject.SetActive(false);
                 pool.Enqueue(note);
+                _pooledGeneratedNotes.Add(note);
             }
         }
 
@@ -338,9 +358,16 @@ public class ChartNoteSpawner : MonoBehaviour
             pool = _typedPools[noteType] = new Queue<NoteBase>();
 
         if (pool.Count == 0)
-            pool.Enqueue(CreateGeneratedNote(noteType));
+        {
+            NoteBase createdNote = CreateGeneratedNote(noteType);
+            createdNote.gameObject.SetActive(false);
+            pool.Enqueue(createdNote);
+            _pooledGeneratedNotes.Add(createdNote);
+        }
 
         NoteBase note = pool.Dequeue();
+        _pooledGeneratedNotes.Remove(note);
+        _finishedRuntimeNotes.Remove(note);
         note.transform.SetParent(noteParent, false);
         note.transform.localRotation = Quaternion.identity;
         note.gameObject.SetActive(true);
@@ -384,12 +411,31 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void HandleGeneratedNoteFinished(NoteBase note, NoteResult result)
     {
+        if (note == null)
+            return;
+
+        if (!_finishedRuntimeNotes.Add(note))
+            return;
+
+        _finishedNoteCount++;
         ReturnGeneratedNote(note);
+
+        if (!_chartFinished &&
+            _spawnDataList != null &&
+            _nextSpawnIndex >= _spawnDataList.Count &&
+            _finishedNoteCount >= _spawnDataList.Count)
+        {
+            _chartFinished = true;
+            OnChartFinished?.Invoke();
+        }
     }
 
     private void ReturnGeneratedNote(NoteBase note)
     {
         if (!_usingTypedPools || note == null)
+            return;
+
+        if (_pooledGeneratedNotes.Contains(note))
             return;
 
         note.gameObject.SetActive(false);
@@ -398,6 +444,25 @@ public class ChartNoteSpawner : MonoBehaviour
             pool = _typedPools[note.NoteType] = new Queue<NoteBase>();
 
         pool.Enqueue(note);
+        _pooledGeneratedNotes.Add(note);
+    }
+
+    private void SubscribeToNoteManager()
+    {
+        if (noteManager == null || _listeningToNoteManager)
+            return;
+
+        noteManager.OnNoteFinishedEvent += HandleGeneratedNoteFinished;
+        _listeningToNoteManager = true;
+    }
+
+    private void UnsubscribeFromNoteManager()
+    {
+        if (noteManager == null || !_listeningToNoteManager)
+            return;
+
+        noteManager.OnNoteFinishedEvent -= HandleGeneratedNoteFinished;
+        _listeningToNoteManager = false;
     }
 
     /// <summary>
@@ -450,6 +515,29 @@ public class ChartNoteSpawner : MonoBehaviour
             AdjustScrollSpeed(-scrollSpeedStep);
     }
 
+    private void LoadPersistedScrollSpeed()
+    {
+        if (!persistScrollSpeed)
+            return;
+
+        scrollSpeed = Mathf.Clamp(
+            RuntimeGameplaySettings.ScrollSpeed,
+            minScrollSpeed,
+            maxScrollSpeed);
+
+        if (logScrollSpeedChanges)
+            Debug.Log($"ChartNoteSpawner: Loaded scroll speed = {scrollSpeed:F0}");
+    }
+
+    private void SavePersistedScrollSpeed()
+    {
+        if (!persistScrollSpeed)
+            return;
+
+        RuntimeGameplaySettings.ScrollSpeed = scrollSpeed;
+        PlayerPrefs.Save();
+    }
+
     private static bool WasKeyPressedThisFrame(KeyCode key)
     {
 #if ENABLE_LEGACY_INPUT_MANAGER
@@ -488,7 +576,6 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (noteManager != null)
-            noteManager.OnNoteFinishedEvent -= HandleGeneratedNoteFinished;
+        UnsubscribeFromNoteManager();
     }
 }

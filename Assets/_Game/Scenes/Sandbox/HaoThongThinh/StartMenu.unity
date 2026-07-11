@@ -240,6 +240,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settingPanel: {fileID: 0}
+  gameplaySceneName: SongSelect
 --- !u!1 &407825990
 GameObject:
   m_ObjectHideFlags: 0
@@ -909,6 +910,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settingPanel: {fileID: 0}
+  gameplaySceneName: SongSelect
 --- !u!114 &1554840581
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -922,6 +924,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settingPanel: {fileID: 0}
+  gameplaySceneName: SongSelect
 --- !u!1 &1962937011
 GameObject:
   m_ObjectHideFlags: 0
