@@ -54,6 +54,8 @@ public class HoldNoteStateMachine
         if (releaseFingerId != fingerId)
             return;
 
+        Progress01 = CalculateProgress(currentTime);
+
         if (currentTime < tailHitTime)
         {
             CurrentState = HoldNoteState.ReleasedEarly;

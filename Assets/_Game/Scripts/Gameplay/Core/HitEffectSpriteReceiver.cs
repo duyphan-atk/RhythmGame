@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -51,6 +52,8 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
     [SerializeField] private float floatUpDistance = 22f;
 
     private RectTransform canvasRect;
+    private readonly Queue<GameObject> laneFlashPool = new Queue<GameObject>();
+    private readonly Queue<GameObject> centerEffectPool = new Queue<GameObject>();
 
     private int activeEffectCount;
     private int stackSerial;
@@ -199,15 +202,11 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
             size = new Vector2(laneWidth * 1.18f, laneWidth * 0.82f);
         }
 
-        GameObject flashObject = new GameObject(
-            $"LANE_HIT_FLASH_L{note.LaneIndex}",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image)
-        );
-
+        GameObject flashObject = GetPooledUiObject(laneFlashPool, "LANE_HIT_FLASH", withCanvasGroup: false);
+        flashObject.name = $"LANE_HIT_FLASH_L{note.LaneIndex}";
         flashObject.transform.SetParent(targetCanvas.transform, false);
         flashObject.transform.SetAsLastSibling();
+        flashObject.SetActive(true);
 
         RectTransform rect = flashObject.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -234,8 +233,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
             yield return new WaitForSecondsRealtime(laneFlashFrameTime);
         }
 
-        if (flashObject != null)
-            Destroy(flashObject);
+        ReturnPooledUiObject(laneFlashPool, flashObject);
     }
 
     private void SpawnCenterEffect(HitJudgment judgment)
@@ -257,16 +255,11 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         if (activeEffectCount >= maxVisibleEffects)
             return;
 
-        GameObject effectObject = new GameObject(
-            $"CENTER_HIT_EFFECT_{judgment}",
-            typeof(RectTransform),
-            typeof(CanvasRenderer),
-            typeof(Image),
-            typeof(CanvasGroup)
-        );
-
+        GameObject effectObject = GetPooledUiObject(centerEffectPool, "CENTER_HIT_EFFECT", withCanvasGroup: true);
+        effectObject.name = $"CENTER_HIT_EFFECT_{judgment}";
         effectObject.transform.SetParent(targetCanvas.transform, false);
         effectObject.transform.SetAsLastSibling();
+        effectObject.SetActive(true);
 
         RectTransform rect = effectObject.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -388,7 +381,36 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
 
         activeEffectCount = Mathf.Max(0, activeEffectCount - 1);
 
-        Destroy(effectObject);
+        ReturnPooledUiObject(centerEffectPool, effectObject);
+    }
+
+    private static GameObject GetPooledUiObject(Queue<GameObject> pool, string objectName, bool withCanvasGroup)
+    {
+        GameObject obj = pool.Count > 0 ? pool.Dequeue() : null;
+
+        if (obj == null)
+        {
+            obj = new GameObject(
+                objectName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
+        }
+
+        if (withCanvasGroup && obj.GetComponent<CanvasGroup>() == null)
+            obj.AddComponent<CanvasGroup>();
+
+        return obj;
+    }
+
+    private static void ReturnPooledUiObject(Queue<GameObject> pool, GameObject obj)
+    {
+        if (obj == null)
+            return;
+
+        obj.SetActive(false);
+        pool.Enqueue(obj);
     }
 
     private float EaseOutBack(float t)

@@ -163,6 +163,10 @@ public class SongListManager : MonoBehaviour
         if (song == null)
             return;
 
+        // A few older SongSelect scenes do not contain this persistent manager.
+        // Create it here so the gameplay scene always receives the selected song.
+        SelectedSongManager.EnsureInstance().SetSelectedSong(song, _selectedDifficulty);
+
         if (_previewAudioSource != null)
             _previewAudioSource.Stop();
 
@@ -920,13 +924,20 @@ public class SongListManager : MonoBehaviour
 
     private void MergeProjectSongData()
     {
-#if UNITY_EDITOR
         if (!includeProjectSongData || string.IsNullOrWhiteSpace(projectSongDataFolder)) return;
         HashSet<SongData> existing = new(_songList);
+
+#if UNITY_EDITOR
         foreach (string guid in AssetDatabase.FindAssets("t:SongData", new[] { projectSongDataFolder }))
         {
             SongData song = AssetDatabase.LoadAssetAtPath<SongData>(AssetDatabase.GUIDToAssetPath(guid));
             if (song != null && existing.Add(song)) _songList.Add(song);
+        }
+#else
+        foreach (SongData song in Resources.LoadAll<SongData>("Songs"))
+        {
+            if (song != null && existing.Add(song))
+                _songList.Add(song);
         }
 #endif
     }

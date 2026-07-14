@@ -8,6 +8,13 @@ public class HoldNote : NoteBase
     [SerializeField] private RectTransform holdFillRect;
     [SerializeField, Min(0.03f)] private float sustainEffectInterval = 0.12f;
 
+    [Header("Early Release Judgment")]
+    [Tooltip("Nếu bật, thả Hold hơi sớm vẫn có thể được tính Perfect/Great/Good thay vì luôn Miss.")]
+    [SerializeField] private bool judgeEarlyRelease = true;
+    [SerializeField, Range(0f, 1f)] private float minPerfectHoldProgress = 0.98f;
+    [SerializeField, Range(0f, 1f)] private float minGreatHoldProgress = 0.90f;
+    [SerializeField, Range(0f, 1f)] private float minGoodHoldProgress = 0.75f;
+
     private readonly HoldNoteStateMachine stateMachine = new HoldNoteStateMachine();
 
     private bool visualCreated;
@@ -118,13 +125,26 @@ public class HoldNote : NoteBase
 
         if (stateMachine.IsReleasedEarly())
         {
-            SetHoldFillColor(Color.red);
-            SetColor(Color.red);
-
             if (movement != null)
                 movement.UnlockY();
 
-            Fail(NoteResult.ReleasedEarly);
+            HitJudgment releaseJudgment = JudgeReleaseProgress(stateMachine.Progress01);
+            HitJudgment finalJudgment = GetLowerJudgment(LastJudgment, releaseJudgment);
+            SetJudgment(finalJudgment, (currentTime - (hitTime + duration)) * 1000f);
+
+            if (finalJudgment == HitJudgment.Miss)
+            {
+                SetHoldFillColor(Color.red);
+                SetColor(Color.red);
+                Fail(NoteResult.ReleasedEarly);
+                return;
+            }
+
+            SetHoldProgress(stateMachine.Progress01);
+            SetHoldFillColor(GetJudgmentColor(finalJudgment));
+            SetColor(GetJudgmentColor(finalJudgment));
+            ShowJudgmentEffectOnce();
+            Complete(NoteResult.Completed);
             return;
         }
 
@@ -170,6 +190,59 @@ public class HoldNote : NoteBase
         ShowJudgmentEffectOnce();
 
         Complete(NoteResult.Completed);
+    }
+
+    private HitJudgment JudgeReleaseProgress(float progress01)
+    {
+        if (!judgeEarlyRelease)
+            return HitJudgment.Miss;
+
+        progress01 = Mathf.Clamp01(progress01);
+        float perfect = Mathf.Clamp01(minPerfectHoldProgress);
+        float great = Mathf.Min(Mathf.Clamp01(minGreatHoldProgress), perfect);
+        float good = Mathf.Min(Mathf.Clamp01(minGoodHoldProgress), great);
+
+        if (progress01 >= perfect)
+            return HitJudgment.Perfect;
+
+        if (progress01 >= great)
+            return HitJudgment.Great;
+
+        if (progress01 >= good)
+            return HitJudgment.Good;
+
+        return HitJudgment.Miss;
+    }
+
+    private static HitJudgment GetLowerJudgment(HitJudgment first, HitJudgment second)
+    {
+        if (first == HitJudgment.None)
+            return second;
+
+        return GetJudgmentRank(first) >= GetJudgmentRank(second) ? first : second;
+    }
+
+    private static int GetJudgmentRank(HitJudgment judgment)
+    {
+        return judgment switch
+        {
+            HitJudgment.Perfect => 0,
+            HitJudgment.Great => 1,
+            HitJudgment.Good => 2,
+            HitJudgment.Miss => 3,
+            _ => 3
+        };
+    }
+
+    private static Color GetJudgmentColor(HitJudgment judgment)
+    {
+        return judgment switch
+        {
+            HitJudgment.Perfect => Color.green,
+            HitJudgment.Great => new Color(0.25f, 0.7f, 1f),
+            HitJudgment.Good => Color.yellow,
+            _ => Color.red
+        };
     }
 
     private void ShowJudgmentEffectOnce()
