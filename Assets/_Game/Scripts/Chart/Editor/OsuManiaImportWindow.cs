@@ -204,17 +204,18 @@ public class SongImportWindow : EditorWindow
 
         ChartSaveLoad.Save(result.Chart, chartFileName);
 
-        AudioClip importedClip = copyAudioToProject ? ImportAudio(result) : null;
+        string songGroupId = BuildSongGroupId(result);
+        AudioClip importedClip = copyAudioToProject ? ImportAudio(result, songGroupId) : null;
         Sprite importedCover = copyCoverToProject ? ImportCover(result) : null;
         Difficulty selectedDifficulty = autoDetectDifficulty ? GuessDifficulty(result.Version) : difficultySlot;
-        RhythmTimelineAsset timeline = createTimelineAsset ? CreateTimeline(result.Chart, BuildSongGroupId(result), importedClip, selectedDifficulty) : null;
+        RhythmTimelineAsset timeline = createTimelineAsset ? CreateTimeline(result.Chart, songGroupId, importedClip, selectedDifficulty) : null;
 
         SongData songData = null;
         if (createOrUpdateSongData)
         {
             songData = CreateOrUpdateSongData(
                 BuildSongTitle(result),
-                BuildSongGroupId(result),
+                songGroupId,
                 result.Chart.bpm,
                 importedClip,
                 importedCover,
@@ -251,7 +252,12 @@ public class SongImportWindow : EditorWindow
             return;
         }
 
-        AudioClip clip = ImportAudioFile(mp3FilePath);
+        string title = string.IsNullOrWhiteSpace(mp3SongTitle)
+            ? Path.GetFileNameWithoutExtension(mp3FilePath)
+            : mp3SongTitle.Trim();
+        string groupId = BuildSongGroupId(mp3Artist, title);
+
+        AudioClip clip = ImportAudioFile(mp3FilePath, groupId);
         if (clip == null)
         {
             EditorUtility.DisplayDialog("MP3 Import Failed", "MP3 was copied but Unity could not load it as AudioClip.", "OK");
@@ -261,10 +267,6 @@ public class SongImportWindow : EditorWindow
         float bpm = mp3AutoDetectBpm ? BpmDetector.Detect(clip) : Mathf.Max(1f, mp3Bpm);
         mp3Bpm = bpm;
 
-        string title = string.IsNullOrWhiteSpace(mp3SongTitle)
-            ? Path.GetFileNameWithoutExtension(mp3FilePath)
-            : mp3SongTitle.Trim();
-        string groupId = BuildSongGroupId(mp3Artist, title);
         Difficulty[] difficulties = mp3GenerateAllDifficulties
             ? new[] { Difficulty.Easy, Difficulty.Medium, Difficulty.Hard }
             : new[] { mp3DifficultySlot };
@@ -344,7 +346,12 @@ public class SongImportWindow : EditorWindow
             return;
         }
 
-        AudioClip clip = ImportAudioFile(mp3FilePath);
+        string title = string.IsNullOrWhiteSpace(mp3SongTitle)
+            ? Path.GetFileNameWithoutExtension(mp3FilePath)
+            : mp3SongTitle.Trim();
+        string groupId = BuildSongGroupId(mp3Artist, title);
+
+        AudioClip clip = ImportAudioFile(mp3FilePath, groupId);
         if (clip == null)
         {
             EditorUtility.DisplayDialog("Preview Failed", "MP3 was copied but Unity could not load it as AudioClip.", "OK");
@@ -353,10 +360,6 @@ public class SongImportWindow : EditorWindow
 
         float bpm = mp3AutoDetectBpm ? BpmDetector.Detect(clip) : Mathf.Max(1f, mp3Bpm);
         mp3Bpm = bpm;
-
-        string title = string.IsNullOrWhiteSpace(mp3SongTitle)
-            ? Path.GetFileNameWithoutExtension(mp3FilePath)
-            : mp3SongTitle.Trim();
 
         ChartDifficultyPreset preset = ToGeneratorPreset(mp3PreviewDifficulty);
         mp3PreviewChart = AudioOnsetChartGenerator.Generate(
@@ -417,7 +420,7 @@ public class SongImportWindow : EditorWindow
         return "chart_" + SongData.SanitizeForFileName(source) + "_" + difficulty;
     }
 
-    private static AudioClip ImportAudio(OsuManiaBeatmapParser.ImportResult result)
+    private static AudioClip ImportAudio(OsuManiaBeatmapParser.ImportResult result, string songGroupId)
     {
         if (string.IsNullOrWhiteSpace(result.AudioFilePath) || !File.Exists(result.AudioFilePath))
         {
@@ -425,15 +428,19 @@ public class SongImportWindow : EditorWindow
             return null;
         }
 
-        return ImportAudioFile(result.AudioFilePath);
+        return ImportAudioFile(result.AudioFilePath, songGroupId);
     }
 
-    private static AudioClip ImportAudioFile(string sourcePath)
+    private static AudioClip ImportAudioFile(string sourcePath, string songGroupId)
     {
         EnsureFolder(MusicFolder);
 
         string extension = Path.GetExtension(sourcePath);
-        string safeName = SongData.SanitizeForFileName(Path.GetFileNameWithoutExtension(sourcePath));
+        // osu! exports commonly name every track "audio.mp3". Use the song group
+        // instead, otherwise later imports silently reuse another song's AudioClip.
+        string safeName = SongData.SanitizeForFileName(songGroupId);
+        if (string.IsNullOrWhiteSpace(safeName) || safeName == "unknown")
+            safeName = SongData.SanitizeForFileName(Path.GetFileNameWithoutExtension(sourcePath));
         string targetPath = $"{MusicFolder}/{safeName}{extension}";
         AudioClip existing = AssetDatabase.LoadAssetAtPath<AudioClip>(targetPath);
         if (existing != null)

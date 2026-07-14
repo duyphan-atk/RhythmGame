@@ -77,6 +77,7 @@ public class SongData : ScriptableObject
         };
 
         if (!string.IsNullOrWhiteSpace(difficultyChart)) return difficultyChart;
+        if (HasAnyDifficultySpecificChart()) return string.Empty;
         if (!string.IsNullOrWhiteSpace(chartFileName)) return chartFileName;
         if (audioClip == null) return string.Empty;
         return "chart_" + SanitizeForFileName(audioClip.name);
@@ -92,7 +93,30 @@ public class SongData : ScriptableObject
             _ => null
         };
 
-        return difficultyTimeline != null ? difficultyTimeline : timelineAsset;
+        if (difficultyTimeline != null) return difficultyTimeline;
+        return HasAnyDifficultySpecificTimeline() ? null : timelineAsset;
+    }
+
+    public bool HasPlayableChart(Difficulty difficulty)
+    {
+        if (!string.IsNullOrWhiteSpace(GetChartFileName(difficulty)))
+            return true;
+
+        return GetTimelineAsset(difficulty) != null;
+    }
+
+    private bool HasAnyDifficultySpecificChart()
+    {
+        return !string.IsNullOrWhiteSpace(easyChartFileName) ||
+               !string.IsNullOrWhiteSpace(normalChartFileName) ||
+               !string.IsNullOrWhiteSpace(hardChartFileName);
+    }
+
+    private bool HasAnyDifficultySpecificTimeline()
+    {
+        return easyTimelineAsset != null ||
+               normalTimelineAsset != null ||
+               hardTimelineAsset != null;
     }
 
     public string SongTitle    => _songTitle;

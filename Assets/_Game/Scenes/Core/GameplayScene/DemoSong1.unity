@@ -437,9 +437,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _noteManager: {fileID: 1842031010}
   _targetCanvas: {fileID: 2130496410}
-  _posYMiddle: 30
-  _posYTop: 200
-  _posYBottom: -80
+  _posYMiddle: 10
+  _posYTop: 180
+  _posYBottom: -100
   _posX: 0
   _earlyColor: {r: 0.43, g: 0.78, b: 1, a: 1}
   _lateColor: {r: 1, g: 0.7, b: 0.28, a: 1}
@@ -1016,14 +1016,16 @@ MonoBehaviour:
   autoMissExtraDelay: 0.04
   resultReceiverBehaviour: {fileID: 1150528994}
   judgmentWindow:
-    perfectWindow: 0.05
-    greatWindow: 0.09
-    goodWindow: 0.15
+    perfectWindow: 0.042
+    greatWindow: 0.083
+    goodWindow: 0.108
+    missWindow: 0.125
   requireNearHitline: 1
   hitlineY: -330
   hitlineJudgeDistance: 150
   useLaneLayoutHitbox: 1
   laneHitboxWidthRatio: 0.95
+  punishTooEarlyInput: 1
   enableKeyboardLaneInput: 1
   ignoreEditorMouseWhenTouchActive: 1
   laneLayout: {fileID: 0}

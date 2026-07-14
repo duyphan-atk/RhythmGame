@@ -54,11 +54,17 @@ public class EarlyLateIndicator : MonoBehaviour
     [SerializeField] private Sprite _lateSprite;
 
     [Header("Animation")]
+    [Tooltip("Chiều rộng tối đa của label sau khi chuẩn hóa sprite (px). Giảm số này nếu EARLY/LATE vẫn quá to.")]
+    [SerializeField] private float _maxLabelWidth = 220f;
+
     [Tooltip("Scale bắt đầu khi label vừa xuất hiện (< 1 = bé hơn).")]
     [SerializeField] private float _startScale = 0.55f;
 
     [Tooltip("Scale đỉnh (pop).")]
     [SerializeField] private float _popScale = 1.15f;
+
+    [Tooltip("Scale sau pha pop. 1 = đúng kích thước đã chuẩn hóa bởi Max Label Width.")]
+    [SerializeField] private float _settleScale = 1f;
 
     [Tooltip("Thời gian (giây) cho pha pop scale.")]
     [SerializeField] private float _popDuration = 0.10f;
@@ -223,11 +229,13 @@ public class EarlyLateIndicator : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot     = new Vector2(0.5f, 0.5f);
         
-        // Tự động scale dựa trên kích thước thật của ảnh
+        // Normalize sprite size first so large source images do not dominate the HUD.
         float imgWidth = sprite.rect.width;
         float imgHeight = sprite.rect.height;
-        // Chia tỷ lệ nhỏ lại chút nếu ảnh gốc quá to, hoặc cứ để nguyên kích thước
-        rect.sizeDelta = new Vector2(imgWidth, imgHeight); 
+        float widthScale = imgWidth > 0f && _maxLabelWidth > 0f
+            ? Mathf.Min(1f, _maxLabelWidth / imgWidth)
+            : 1f;
+        rect.sizeDelta = new Vector2(imgWidth * widthScale, imgHeight * widthScale);
         
         rect.anchoredPosition = new Vector2(_posX, _anchoredY);
         rect.localScale = Vector3.one * _startScale;
@@ -270,7 +278,7 @@ public class EarlyLateIndicator : MonoBehaviour
             else
             {
                 float t = Mathf.InverseLerp(_popDuration, _lifetime, elapsed);
-                scale = Mathf.Lerp(_popScale, 1f, EaseOutQuad(t));
+                scale = Mathf.Lerp(_popScale, _settleScale, EaseOutQuad(t));
             }
             rect.localScale = Vector3.one * scale;
 
