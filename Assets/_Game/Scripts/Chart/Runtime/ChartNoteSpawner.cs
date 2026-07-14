@@ -179,6 +179,15 @@ public class ChartNoteSpawner : MonoBehaviour
             ? SelectedSongManager.Instance.SelectedDifficulty
             : Difficulty.Medium;
 
+        if (selectedSong == null &&
+            SelectedSongManager.TryRestoreLastSelection(out SongData restoredSong, out Difficulty restoredDifficulty))
+        {
+            selectedSong = restoredSong;
+            selectedDifficulty = restoredDifficulty;
+            SelectedSongManager.EnsureInstance().SetSelectedSong(selectedSong, selectedDifficulty);
+            Debug.LogWarning($"ChartNoteSpawner: Restored selected song '{selectedSong.SongTitle}' ({selectedDifficulty}).");
+        }
+
         if (selectedSong != null)
         {
             string computedName = selectedSong.GetChartFileName(selectedDifficulty);

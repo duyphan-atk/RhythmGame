@@ -7,14 +7,19 @@ public static class RuntimeGameplaySettings
     public const string MusicVolumeKey = NoteVolumeKey;
     public const string AudioOffsetKey = "AudioOffset";
     public const string AudioPresetKey = "AudioPreset";
+    public const string FrameRateKey = "VisualQuality";
 
     public const float DefaultNoteSpeedMultiplier = 1f;
     public const int DefaultNoteVolumePercent = 100;
     public const int DefaultAudioOffsetMs = 0;
+    public const int DefaultFrameRateIndex = 0;
+    public const int UnlimitedFrameRate = -1;
     public const float MinNoteSpeedSetting = 1f;
     public const float MaxNoteSpeedSetting = 6.5f;
     public const float MinScrollSpeed = 50f;
     public const float MaxScrollSpeed = 3500f;
+    public static readonly int[] FrameRateOptions = { 60, 120, UnlimitedFrameRate };
+    public static readonly string[] FrameRateLabels = { "60 FPS", "120 FPS", "Unlimited FPS" };
 
     public static float NoteSpeedMultiplier
     {
@@ -56,6 +61,28 @@ public static class RuntimeGameplaySettings
     {
         get => PlayerPrefs.GetInt(AudioPresetKey, 0) == 1;
         set => PlayerPrefs.SetInt(AudioPresetKey, value ? 1 : 0);
+    }
+
+    public static int FrameRateIndex
+    {
+        get => Mathf.Clamp(PlayerPrefs.GetInt(FrameRateKey, DefaultFrameRateIndex), 0, FrameRateOptions.Length - 1);
+        set => PlayerPrefs.SetInt(FrameRateKey, Mathf.Clamp(value, 0, FrameRateOptions.Length - 1));
+    }
+
+    public static string FrameRateLabel => FrameRateLabels[FrameRateIndex];
+
+    public static void ApplyFrameRate()
+    {
+        ApplyFrameRate(FrameRateIndex);
+    }
+
+    public static void ApplyFrameRate(int frameRateIndex)
+    {
+        frameRateIndex = Mathf.Clamp(frameRateIndex, 0, FrameRateOptions.Length - 1);
+        int targetFrameRate = FrameRateOptions[frameRateIndex];
+
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = targetFrameRate;
     }
 
     public static void Save()

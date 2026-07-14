@@ -64,9 +64,8 @@ public class UIManager : MonoBehaviour
     private int currentVolume = 100, currentOffset = 0;
     private bool isHeadphonesPreset = false;
 
-    // Data Visual (6 Chức năng chuẩn Arcaea)
-    private int qualityIndex = 1;
-    private string[] qualityLevels = { "Low", "Standard / High" };
+    // Data Visual
+    private int qualityIndex = RuntimeGameplaySettings.DefaultFrameRateIndex;
 
     private bool isShowTouchesEnabled = false;
 
@@ -84,6 +83,7 @@ public class UIManager : MonoBehaviour
     private void Start()
     {
         LoadSettings();
+        RuntimeGameplaySettings.ApplyFrameRate();
         NormalizeOffsetTextLayout();
         BuildNoteSpeedPreview();
         if (settingsOverlayOnly)
@@ -199,7 +199,16 @@ public class UIManager : MonoBehaviour
     public void ToggleAudioPreset() { isHeadphonesPreset = !isHeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker"; RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset; RuntimeGameplaySettings.Save(); }
 
     // --- LOGIC VISUAL ---
-    public void ToggleGraphicsQuality() { qualityIndex = (qualityIndex + 1) % qualityLevels.Length; textGraphicsQuality.text = qualityLevels[qualityIndex]; }
+    public void ToggleGraphicsQuality()
+    {
+        qualityIndex = (qualityIndex + 1) % RuntimeGameplaySettings.FrameRateOptions.Length;
+        RuntimeGameplaySettings.FrameRateIndex = qualityIndex;
+        RuntimeGameplaySettings.ApplyFrameRate(qualityIndex);
+        RuntimeGameplaySettings.Save();
+
+        if (textGraphicsQuality != null)
+            textGraphicsQuality.text = RuntimeGameplaySettings.FrameRateLabels[qualityIndex];
+    }
     public void ToggleShowTouches() { isShowTouchesEnabled = !isShowTouchesEnabled; textShowTouches.text = isShowTouchesEnabled ? "Enabled" : "Disabled"; }
     public void ToggleStoryTextSpeed() { storySpeedIndex = (storySpeedIndex + 1) % storySpeeds.Length; textStoryTextSpeed.text = storySpeeds[storySpeedIndex]; }
     public void ToggleColorblindMode() { isColorblindModeEnabled = !isColorblindModeEnabled; textColorblindMode.text = isColorblindModeEnabled ? "Enabled" : "Disabled"; }
@@ -220,7 +229,8 @@ public class UIManager : MonoBehaviour
         RuntimeGameplaySettings.AudioOffsetMs = currentOffset;
         RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset;
         // Lưu dữ liệu Visual
-        PlayerPrefs.SetInt("VisualQuality", qualityIndex);
+        RuntimeGameplaySettings.FrameRateIndex = qualityIndex;
+        RuntimeGameplaySettings.ApplyFrameRate(qualityIndex);
         PlayerPrefs.SetInt("VisualShowTouches", isShowTouchesEnabled ? 1 : 0);
         PlayerPrefs.SetInt("VisualStorySpeed", storySpeedIndex);
         PlayerPrefs.SetInt("VisualColorblind", isColorblindModeEnabled ? 1 : 0);
@@ -242,7 +252,7 @@ public class UIManager : MonoBehaviour
         currentOffset = RuntimeGameplaySettings.AudioOffsetMs; if (textOffset != null) textOffset.text = currentOffset.ToString();
         isHeadphonesPreset = RuntimeGameplaySettings.HeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker";
         // Tải dữ liệu Visual
-        qualityIndex = PlayerPrefs.GetInt("VisualQuality", 1); if (textGraphicsQuality != null) textGraphicsQuality.text = qualityLevels[qualityIndex];
+        qualityIndex = RuntimeGameplaySettings.FrameRateIndex; if (textGraphicsQuality != null) textGraphicsQuality.text = RuntimeGameplaySettings.FrameRateLabels[qualityIndex];
         isShowTouchesEnabled = PlayerPrefs.GetInt("VisualShowTouches", 0) == 1; if (textShowTouches != null) textShowTouches.text = isShowTouchesEnabled ? "Enabled" : "Disabled";
         storySpeedIndex = PlayerPrefs.GetInt("VisualStorySpeed", 0); if (textStoryTextSpeed != null) textStoryTextSpeed.text = storySpeeds[storySpeedIndex];
         isColorblindModeEnabled = PlayerPrefs.GetInt("VisualColorblind", 0) == 1; if (textColorblindMode != null) textColorblindMode.text = isColorblindModeEnabled ? "Enabled" : "Disabled";
