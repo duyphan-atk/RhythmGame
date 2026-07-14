@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -339,7 +339,7 @@ public class SongListManager : MonoBehaviour
 
         _runtimeCardTemplate = ResolveRuntimeCardTemplate();
         ClearCarouselContentButTemplate();
-        _carouselContent.sizeDelta = new Vector2(_carouselContent.sizeDelta.x, Mathf.Max(560f, _songList.Count * 118f + 84f));
+        _carouselContent.sizeDelta = new Vector2(_carouselContent.sizeDelta.x, Mathf.Max(560f, _songList.Count * 86f + 60f));
         CreateCarouselCards(_carouselContent);
     }
 
@@ -462,7 +462,7 @@ public class SongListManager : MonoBehaviour
         _carouselContent.anchorMax = new Vector2(1f, 1f);
         _carouselContent.pivot = new Vector2(0.5f, 1f);
         _carouselContent.anchoredPosition = Vector2.zero;
-        _carouselContent.sizeDelta = new Vector2(0f, Mathf.Max(560f, _songList.Count * 118f + 84f));
+        _carouselContent.sizeDelta = new Vector2(0f, Mathf.Max(560f, _songList.Count * 68f + 60f));
         _carouselScrollRect.viewport = _carouselViewport;
         _carouselScrollRect.content = _carouselContent;
         _carouselScrollRect.onValueChanged.AddListener(_ => UpdateCarousel());
@@ -481,7 +481,7 @@ public class SongListManager : MonoBehaviour
                 CarouselCard card = _cards[song];
                 card.Rect.anchorMin = card.Rect.anchorMax = new Vector2(0.5f, 1f);
                 card.Rect.pivot = new Vector2(0.5f, 0.5f);
-                card.Rect.anchoredPosition = new Vector2(14f, -62f - songIndex * 118f);
+                card.Rect.anchoredPosition = new Vector2(8f, -38f - songIndex * 68f);
                 songIndex++;
             }
         }
@@ -495,43 +495,143 @@ public class SongListManager : MonoBehaviour
             return;
         }
 
-        RectTransform card = CreatePanel("Song Card - " + song.SongTitle, parent, new Color(0.11f, 0.03f, 0.16f, 0.92f));
-        card.sizeDelta = new Vector2(430f, 96f);
-        Image background = card.GetComponent<Image>();
+        Sprite roundedSprite    = RoundedRectSprite.GetCached(16f);
+        Sprite roundedSpriteSm  = RoundedRectSprite.GetCached(10f);
+
+        // ── Card (height 76px, width fills carousel) ──────────────────────────
+        const float CardH   = 60f;
+        const float ThumbW  = 58f;
+        const float ScoreW  = 72f;
+        const float CardW   = 360f;
+
+        RectTransform card = CreateRect("Song Card - " + song.SongTitle, parent);
+        card.sizeDelta = new Vector2(CardW, CardH);
+
+        // Card background — dark rounded rect
+        Image background = card.gameObject.AddComponent<Image>();
+        background.sprite        = roundedSprite;
+        background.type          = Image.Type.Sliced;
+        background.color         = new Color(0.08f, 0.07f, 0.13f, 0.94f);
+        background.raycastTarget = true;
+
         Button button = card.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
         button.onClick.AddListener(() => SelectOrPlaySong(song));
 
-        RectTransform artMask = CreatePanel("Card Art", card, Color.white);
-        Anchor(artMask, new Vector2(0f, 0f), new Vector2(0.24f, 1f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-        artMask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
-        Image art = CreatePanel("Art", artMask, new Color(1f, 1f, 1f, 0.32f)).GetComponent<Image>();
-        Stretch(art.rectTransform);
-        art.sprite = song.PreviewImage;
-        art.preserveAspect = false;
-        art.raycastTarget = false;
+        // ── Thumbnail — left square, clipped with rounded sprite ──────────────
+        RectTransform artHolder = CreateRect("Card Art", card);
+        Anchor(artHolder, Vector2.zero, new Vector2(0f, 1f),
+               new Vector2(0f, 0.5f), new Vector2(6f, 0f), new Vector2(ThumbW - 8f, -8f));
+        Image artHolderImg       = artHolder.gameObject.AddComponent<Image>();
+        artHolderImg.sprite      = roundedSprite;
+        artHolderImg.type        = Image.Type.Sliced;
+        artHolderImg.color       = new Color(0.20f, 0.12f, 0.32f, 1f);
+        artHolderImg.raycastTarget = false;
+        artHolder.gameObject.AddComponent<Mask>().showMaskGraphic = true;
 
-        RectTransform difficulty = CreatePanel("Difficulty", card, DifficultyColor(song));
-        Anchor(difficulty, new Vector2(0.24f, 0f), new Vector2(0.39f, 1f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-        TextMeshProUGUI difficultyText = CreateText(GetDifficultyLabel(song), difficulty, 13, FontStyles.Bold, TextAlignmentOptions.Center, Color.white, Vector2.zero, new Vector2(62f, 34f));
+        Image art          = CreatePanel("Art", artHolder, new Color(0.20f, 0.12f, 0.32f, 1f)).GetComponent<Image>();
+        Stretch(art.rectTransform);
+        art.sprite         = song.PreviewImage;
+        art.type           = Image.Type.Simple;
+        art.preserveAspect = false;
+        art.raycastTarget  = false;
+
+        // ── Difficulty badge — sits on the CARD (not inside mask) ─────────────
+        // Positioned over the top-left of the thumbnail area
+        RectTransform diffBadge = CreateRect("Difficulty", card);
+        Anchor(diffBadge, new Vector2(0f, 1f), new Vector2(0f, 1f),
+               new Vector2(0f, 1f), new Vector2(ThumbW + 10f, -6f), new Vector2(58f, 15f));
+        Image diffBadgeImg       = diffBadge.gameObject.AddComponent<Image>();
+        diffBadgeImg.sprite      = roundedSpriteSm;
+        diffBadgeImg.type        = Image.Type.Sliced;
+        diffBadgeImg.color       = DifficultyColor(song);
+        diffBadgeImg.raycastTarget = false;
+
+        TextMeshProUGUI difficultyText = CreateText(
+            GetDifficultyLabel(song).ToUpperInvariant(), diffBadge,
+            7f, FontStyles.Bold, TextAlignmentOptions.Center, Color.white,
+            Vector2.zero, new Vector2(56f, 13f));
         difficultyText.gameObject.name = "Difficulty Label";
+
+        // ── Centre: title + BPM ───────────────────────────────────────────────
+        // Text area: from right edge of thumbnail to left edge of score panel
         RectTransform textArea = CreateRect("Text", card);
-        Anchor(textArea, new Vector2(0.40f, 0f), new Vector2(0.78f, 1f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        Anchor(textArea,
+               new Vector2(0f, 0f), new Vector2(1f, 1f),
+               new Vector2(0f, 0.5f),
+               new Vector2(ThumbW + 10f, 0f),
+               new Vector2(-(ScoreW + 8f), 0f));
+
+        // Title — vertically centred, slightly above mid
         RectTransform titleClip = CreateRect("Title Clip", textArea);
-        Anchor(titleClip, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(4f, 15f), new Vector2(-8f, 28f));
+        Anchor(titleClip, new Vector2(0f, 1f), new Vector2(1f, 1f),
+               new Vector2(0f, 1f), new Vector2(0f, -23f), new Vector2(0f, 21f));
         titleClip.gameObject.AddComponent<RectMask2D>();
-        TextMeshProUGUI title = CreateText(song.SongTitle, titleClip, 17, FontStyles.Bold, TextAlignmentOptions.Left, Color.white, Vector2.zero, new Vector2(460f, 28f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+
+        TextMeshProUGUI title = CreateText(
+            song.SongTitle, titleClip,
+            14f, FontStyles.Bold, TextAlignmentOptions.Left, Color.white,
+            Vector2.zero, new Vector2(215f, 21f),
+            new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
         title.gameObject.name = "Card Title";
         SongTitleMarquee marquee = title.gameObject.AddComponent<SongTitleMarquee>();
-        TextMeshProUGUI bpm = CreateText(GetBpmLabel(song), textArea, 12, FontStyles.Normal, TextAlignmentOptions.Left, new Color(0.97f, 0.86f, 1f, 1f), new Vector2(4f, -18f), new Vector2(170f, 22f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+
+        // BPM — below title
+        TextMeshProUGUI bpm = CreateText(
+            GetBpmLabel(song), textArea,
+            9f, FontStyles.Normal, TextAlignmentOptions.Left,
+            new Color(0.78f, 0.72f, 0.88f, 0.86f),
+            new Vector2(0f, -38f), new Vector2(150f, 14f),
+            new Vector2(0f, 1f), new Vector2(0f, 1f));
         bpm.gameObject.name = "Card BPM";
-        RectTransform scorePanel = CreatePanel("Card Score", card, new Color(0.18f, 0.04f, 0.17f, 0.72f));
-        Anchor(scorePanel, new Vector2(0.79f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-        TextMeshProUGUI rank = CreateText("-", scorePanel, 28, FontStyles.Bold, TextAlignmentOptions.Center, new Color(1f, 0.55f, 0.82f, 1f), new Vector2(0f, 14f), new Vector2(84f, 34f));
-        TextMeshProUGUI bestScore = CreateText("0000000", scorePanel, 12, FontStyles.Bold, TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.86f), new Vector2(0f, -18f), new Vector2(86f, 20f));
-        rank.gameObject.name = "Card Rank";
+
+        // ── Right score column ────────────────────────────────────────────────
+        RectTransform scorePanel = CreateRect("Card Score", card);
+        Anchor(scorePanel, new Vector2(1f, 0f), new Vector2(1f, 1f),
+               new Vector2(1f, 0.5f), new Vector2(-4f, 0f), new Vector2(ScoreW, 0f));
+
+        // Thin separator on left edge
+        RectTransform sep = CreatePanel("Separator", scorePanel, new Color(1f, 1f, 1f, 0.10f));
+        Anchor(sep, new Vector2(0f, 0.12f), new Vector2(0f, 0.88f),
+               new Vector2(0f, 0.5f), Vector2.zero, new Vector2(1f, 0f));
+
+        // "Score" caption
+        CreateText("Score", scorePanel,
+            9f, FontStyles.Normal, TextAlignmentOptions.Right,
+            new Color(0.78f, 0.72f, 1f, 0.70f),
+            new Vector2(-6f, 12f), new Vector2(ScoreW - 10f, 14f),
+            new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+
+        // Score digits
+        TextMeshProUGUI bestScore = CreateText(
+            "0000000", scorePanel,
+            9f, FontStyles.Bold, TextAlignmentOptions.Right,
+            new Color(1f, 1f, 1f, 0.96f),
+            new Vector2(-6f, -4f), new Vector2(ScoreW - 10f, 16f),
+            new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
         bestScore.gameObject.name = "Card Best Score";
-        _cards[song] = new CarouselCard { Rect = card, Background = background, Art = art, Difficulty = difficultyText, Title = title, Bpm = bpm, Rank = rank, BestScore = bestScore, Marquee = marquee };
+
+        // Rank letter
+        TextMeshProUGUI rank = CreateText(
+            "-", scorePanel,
+            12f, FontStyles.Bold, TextAlignmentOptions.Right,
+            new Color(1f, 0.58f, 0.88f, 0.95f),
+            new Vector2(-6f, -21f), new Vector2(ScoreW - 10f, 16f),
+            new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+        rank.gameObject.name = "Card Rank";
+
+        _cards[song] = new CarouselCard
+        {
+            Rect       = card,
+            Background = background,
+            Art        = art,
+            Difficulty = difficultyText,
+            Title      = title,
+            Bpm        = bpm,
+            Rank       = rank,
+            BestScore  = bestScore,
+            Marquee    = marquee
+        };
     }
 
     private void CreateSongCardFromTemplate(SongData song, RectTransform parent)
@@ -723,14 +823,14 @@ public class SongListManager : MonoBehaviour
             if (item.Value.Rect == null)
                 continue;
             float localY = _carouselViewport.InverseTransformPoint(item.Value.Rect.position).y;
-            float t = Mathf.Clamp01(1f - Mathf.Abs(localY) / 220f);
-            float scale = Mathf.Lerp(0.74f, 1.12f, t);
+            float t = Mathf.Clamp01(1f - Mathf.Abs(localY) / 170f);
+            float scale = Mathf.Lerp(0.92f, 1.02f, t);
             float lerpSpeed = Application.isPlaying ? Time.unscaledDeltaTime * 12f : 1f;
             item.Value.Rect.localScale = Vector3.Lerp(item.Value.Rect.localScale, Vector3.one * scale, lerpSpeed);
-            item.Value.Rect.anchoredPosition = new Vector2(Mathf.Lerp(item.Value.Rect.anchoredPosition.x, Mathf.Lerp(38f, -14f, t), lerpSpeed), item.Value.Rect.anchoredPosition.y);
+            item.Value.Rect.anchoredPosition = new Vector2(Mathf.Lerp(item.Value.Rect.anchoredPosition.x, Mathf.Lerp(14f, 4f, t), lerpSpeed), item.Value.Rect.anchoredPosition.y);
             Color targetColor = item.Key == _selectedSong
-                ? new Color(0.60f, 0.08f, 0.44f, 0.98f)
-                : new Color(0.11f, 0.03f, 0.16f, 0.92f);
+                ? new Color(0.18f, 0.08f, 0.18f, 0.96f)
+                : new Color(0.08f, 0.07f, 0.13f, 0.94f);
             if (item.Value.Background != null)
                 item.Value.Background.color = Color.Lerp(item.Value.Background.color, targetColor, lerpSpeed);
             Difficulty displayDifficulty = item.Key == _selectedSong ? _selectedDifficulty : GetPreferredDifficulty(item.Key);
@@ -1080,7 +1180,10 @@ public class SongListManager : MonoBehaviour
     private static string GetDifficultyLabel(SongData song) => song == null ? "--" : !string.IsNullOrWhiteSpace(song._difficulty) ? song._difficulty : GetDifficultyLabel(song.difficultyLevel);
     private static string GetDifficultyLabel(Difficulty difficulty) => difficulty == Difficulty.Medium ? "Normal" : difficulty.ToString();
     private static Color DifficultyColor(SongData song) => song != null ? DifficultyColor(song.difficultyLevel) : DifficultyColor(Difficulty.Easy);
-    private static Color DifficultyColor(Difficulty difficulty) => difficulty == Difficulty.Hard ? new Color(0.68f, 0.08f, 0.24f, 0.98f) : difficulty == Difficulty.Medium ? new Color(0.66f, 0.08f, 0.45f, 0.98f) : new Color(0.12f, 0.42f, 0.59f, 0.98f);
+    private static Color DifficultyColor(Difficulty difficulty) =>
+        difficulty == Difficulty.Hard   ? new Color(0.85f, 0.22f, 0.22f, 1.00f) :  // Red-orange for Hard
+        difficulty == Difficulty.Medium ? new Color(0.18f, 0.62f, 0.30f, 1.00f) :  // Green for Normal
+                                         new Color(0.14f, 0.44f, 0.72f, 1.00f);    // Blue for Easy
 
     private static bool WasConfirmPressedThisFrame()
     {
