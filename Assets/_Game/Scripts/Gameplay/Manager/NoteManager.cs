@@ -23,6 +23,10 @@ public class NoteManager : MonoBehaviour
     [Header("Judgment")]
     [SerializeField] private JudgmentWindow judgmentWindow = new JudgmentWindow();
 
+    [Header("Anti-Spam")]
+    [Tooltip("Nếu bấm cùng lane trước Good window nhưng vẫn còn trong Miss Window, note sẽ bị MISS để chống spam.")]
+    [SerializeField] private bool punishTooEarlyInput = true;
+
     [Header("Hitline Position TEST")]
     [SerializeField] private bool requireNearHitline = true;
     [SerializeField] private float hitlineY = -330f;
@@ -64,10 +68,17 @@ public class NoteManager : MonoBehaviour
 
     private void Awake()
     {
+        judgmentWindow?.Normalize();
         ResolveResultReceiver();
 
         if (laneLayout == null)
             laneLayout = FindFirstObjectByType<GameplayLaneLayout>();
+    }
+
+    private void OnValidate()
+    {
+        judgmentWindow?.Normalize();
+        autoMissExtraDelay = Mathf.Max(0f, autoMissExtraDelay);
     }
 
     private void Update()
@@ -211,7 +222,7 @@ public class NoteManager : MonoBehaviour
             if (note.IsAssigned)
                 continue;
 
-            float missTime = note.HitTime + judgmentWindow.goodWindow + autoMissExtraDelay;
+            float missTime = note.HitTime + judgmentWindow.missWindow + autoMissExtraDelay;
 
             if (currentTime > missTime)
             {
@@ -427,7 +438,10 @@ public class NoteManager : MonoBehaviour
         NoteBase note = FindBestNote(pointer.position);
 
         if (note == null)
+        {
+            TryPunishTooEarlyInput(pointer.position);
             return;
+        }
 
         if (!note.CanReceivePointer())
             return;
@@ -439,7 +453,10 @@ public class NoteManager : MonoBehaviour
         );
 
         if (judgment == HitJudgment.Miss)
+        {
+            note.ForceMiss(deltaMs);
             return;
+        }
 
         note.SetJudgment(judgment, deltaMs);
 
@@ -569,6 +586,54 @@ public class NoteManager : MonoBehaviour
         }
 
         return bestNote;
+    }
+
+    private bool TryPunishTooEarlyInput(Vector2 screenPosition)
+    {
+        if (!punishTooEarlyInput)
+            return false;
+
+        bool hasLayoutLane = TryGetLayoutLane(screenPosition, out int pointerLane, out float laneDistance);
+        NoteBase candidate = null;
+        float bestScore = float.MaxValue;
+
+        foreach (NoteBase note in activeNotes)
+        {
+            if (note == null || !note.CanReceivePointer())
+                continue;
+
+            if (!judgmentWindow.IsTooEarlyButInsideMissWindow(currentTime, note.HitTime))
+                continue;
+
+            float distanceScore;
+            if (hasLayoutLane)
+            {
+                if (note.LaneIndex != pointerLane)
+                    continue;
+
+                distanceScore = laneDistance;
+            }
+            else
+            {
+                distanceScore = note.DistanceToPointer(screenPosition);
+                if (distanceScore > note.TouchRadius)
+                    continue;
+            }
+
+            float score = (note.HitTime - currentTime) * 1000f + distanceScore;
+            if (score < bestScore)
+            {
+                bestScore = score;
+                candidate = note;
+            }
+        }
+
+        if (candidate == null)
+            return false;
+
+        float deltaMs = (currentTime - candidate.HitTime) * 1000f;
+        candidate.ForceMiss(deltaMs);
+        return true;
     }
 
     private bool TryGetLayoutLane(Vector2 screenPosition, out int laneIndex, out float distanceToLaneCenter)

@@ -133,6 +133,9 @@ public class SongListManager : MonoBehaviour
 
     public void PopulateList()
     {
+        MergeProjectSongData();
+        ConsolidateSongListByGroupId();
+
         if (_itemPrefab == null || _contentArea == null)
             return;
 
@@ -159,7 +162,11 @@ public class SongListManager : MonoBehaviour
 
     public void PlaySelectedSong()
     {
-        SongData song = SelectedSongManager.Instance != null ? SelectedSongManager.Instance.SelectedSong : _selectedSong;
+        SongData song = _selectedSong != null
+            ? _selectedSong
+            : SelectedSongManager.Instance != null
+                ? SelectedSongManager.Instance.SelectedSong
+                : null;
         if (song == null)
             return;
 
@@ -695,6 +702,9 @@ public class SongListManager : MonoBehaviour
             return;
 
         _selectedSong = song;
+        if (!song.HasPlayableChart(_selectedDifficulty))
+            _selectedDifficulty = GetPreferredDifficulty(song);
+
         if (SelectedSongManager.Instance != null)
             SelectedSongManager.Instance.SetSelectedSong(song, _selectedDifficulty);
 
@@ -707,6 +717,9 @@ public class SongListManager : MonoBehaviour
 
     private void SelectDifficulty(Difficulty difficulty)
     {
+        if (_selectedSong != null && !_selectedSong.HasPlayableChart(difficulty))
+            difficulty = GetPreferredDifficulty(_selectedSong);
+
         _selectedDifficulty = difficulty;
         if (_selectedSong != null && SelectedSongManager.Instance != null)
             SelectedSongManager.Instance.SetSelectedSong(_selectedSong, _selectedDifficulty);
@@ -924,14 +937,23 @@ public class SongListManager : MonoBehaviour
 
     private void MergeProjectSongData()
     {
-        if (!includeProjectSongData || string.IsNullOrWhiteSpace(projectSongDataFolder)) return;
+        if (!includeProjectSongData) return;
         HashSet<SongData> existing = new(_songList);
 
 #if UNITY_EDITOR
-        foreach (string guid in AssetDatabase.FindAssets("t:SongData", new[] { projectSongDataFolder }))
+        if (!string.IsNullOrWhiteSpace(projectSongDataFolder))
         {
-            SongData song = AssetDatabase.LoadAssetAtPath<SongData>(AssetDatabase.GUIDToAssetPath(guid));
-            if (song != null && existing.Add(song)) _songList.Add(song);
+            foreach (string guid in AssetDatabase.FindAssets("t:SongData", new[] { projectSongDataFolder }))
+            {
+                SongData song = AssetDatabase.LoadAssetAtPath<SongData>(AssetDatabase.GUIDToAssetPath(guid));
+                if (song != null && existing.Add(song)) _songList.Add(song);
+            }
+        }
+
+        foreach (SongData song in Resources.LoadAll<SongData>("Songs"))
+        {
+            if (song != null && existing.Add(song))
+                _songList.Add(song);
         }
 #else
         foreach (SongData song in Resources.LoadAll<SongData>("Songs"))
@@ -1177,11 +1199,11 @@ public class SongListManager : MonoBehaviour
         if (song == null)
             return Difficulty.Medium;
 
-        if (!string.IsNullOrWhiteSpace(song.normalChartFileName) || song.normalTimelineAsset != null)
+        if (song.HasPlayableChart(Difficulty.Medium))
             return Difficulty.Medium;
-        if (!string.IsNullOrWhiteSpace(song.easyChartFileName) || song.easyTimelineAsset != null)
+        if (song.HasPlayableChart(Difficulty.Easy))
             return Difficulty.Easy;
-        if (!string.IsNullOrWhiteSpace(song.hardChartFileName) || song.hardTimelineAsset != null)
+        if (song.HasPlayableChart(Difficulty.Hard))
             return Difficulty.Hard;
 
         return song.difficultyLevel;

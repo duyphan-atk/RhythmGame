@@ -27,6 +27,9 @@ public class GameplayLaneLayout : MonoBehaviour
     [SerializeField] private float hitlineOffsetY = 0f;
     [SerializeField] private float hitlineJudgeDistanceRatio = 0.78f;
     [SerializeField] private float touchRadiusRatio = 0.95f;
+    [SerializeField, Range(0.5f, 1.4f)] private float laneBottomWidthRatio = 1.08f;
+    [SerializeField, Range(0.08f, 0.32f)] private float laneLightWidthRatio = 0.18f;
+    [SerializeField, Range(0.75f, 1.25f)] private float hitHintWidthRatio = 1.04f;
     [SerializeField] private float verticalBleed = 96f;
 
     [Header("Debug")]
@@ -94,6 +97,8 @@ public class GameplayLaneLayout : MonoBehaviour
         laneCount = Mathf.Max(1, laneCount);
         minLaneSpacing = Mathf.Max(1f, minLaneSpacing);
         maxLaneSpacing = Mathf.Max(minLaneSpacing, maxLaneSpacing);
+        hitlineJudgeDistanceRatio = Mathf.Max(0f, hitlineJudgeDistanceRatio);
+        touchRadiusRatio = Mathf.Max(0f, touchRadiusRatio);
         verticalBleed = Mathf.Max(0f, verticalBleed);
 
         ResolveReferences();
@@ -142,7 +147,7 @@ public class GameplayLaneLayout : MonoBehaviour
         SetRect(stageShade, new Vector2(stageWidth, stageHeight), Vector2.zero);
         SetRect(stageLeft, new Vector2(sideWidth, stageHeight), new Vector2(-sideX, 0f));
         SetRect(stageRight, new Vector2(sideWidth, stageHeight), new Vector2(sideX, 0f));
-        SetRect(hitHint, new Vector2(laneBandWidth, Mathf.Max(22f, appliedLaneSpacing * 0.16f)),
+        SetRect(hitHint, new Vector2(laneBandWidth * hitHintWidthRatio, Mathf.Max(22f, appliedLaneSpacing * 0.16f)),
             new Vector2(0f, appliedHitlineY + Mathf.Max(12f, appliedLaneSpacing * 0.12f)));
 
         for (int i = 0; i < activeLaneCount; i++)
@@ -152,14 +157,14 @@ public class GameplayLaneLayout : MonoBehaviour
             if (laneLights != null && i < laneLights.Length)
             {
                 SetRect(laneLights[i],
-                    new Vector2(Mathf.Max(18f, appliedLaneSpacing * 0.16f), stageHeight),
+                    new Vector2(Mathf.Max(18f, appliedLaneSpacing * laneLightWidthRatio), stageHeight),
                     new Vector2(laneX, 0f));
             }
 
             if (laneBottoms != null && i < laneBottoms.Length)
             {
                 SetRect(laneBottoms[i],
-                    new Vector2(appliedLaneSpacing, Mathf.Max(24f, appliedLaneSpacing * 0.18f)),
+                    new Vector2(appliedLaneSpacing * laneBottomWidthRatio, Mathf.Max(24f, appliedLaneSpacing * 0.18f)),
                     new Vector2(laneX, appliedHitlineY));
             }
         }

@@ -57,9 +57,9 @@ public abstract class NoteBase : MonoBehaviour
         return hitTime + missAfterHitTime;
     }
 
-    public void ForceMiss()
+    public void ForceMiss(float deltaMs = 0f)
     {
-        SetJudgment(HitJudgment.Miss, 0f);
+        SetJudgment(HitJudgment.Miss, deltaMs);
         Fail(NoteResult.Missed);
     }
 

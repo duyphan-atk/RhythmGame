@@ -28,12 +28,7 @@
           "safeArea": { "serializedVersion": "2", "x": 141.0, "y": 63.0, "width": 2496.0, "height": 1221.0 },
           "cutouts": []
         }
-      ],
-      "presentation": {
-        "overlayPath": "DeviceOverlays/Apple iPhone 13 Pro Max_Overlay.png",
-        "borderSize": { "x": 55.0, "y": 55.0, "z": 55.0, "w": 55.0 },
-        "cornerRadius": 185.0
-      }
+      ]
     }
   ],
   "systemInfo": {
