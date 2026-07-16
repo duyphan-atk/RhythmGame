@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44d92de3bebd1df4b95f53b641a3772e, type: 3}
+  m_Name: GameplaySfxCatalog
+  m_EditorClassIdentifier:
+  fadeIn: {fileID: 8300000, guid: 5b417175049bbf24082319549f9ff166, type: 3}
+  fadeOut: {fileID: 8300000, guid: 1ba590823d9303a4abe3b87708b17faa, type: 3}
+  tap: {fileID: 8300000, guid: f1aa88944d154594b96943f13b0b61f4, type: 3}
+  arc: {fileID: 8300000, guid: 7cf5ecfdb8c4cfd419ebde9aafd52d87, type: 3}
+  hpClear: {fileID: 8300000, guid: e77df858a61ece0408e47d2fe39edc9e, type: 3}
+  trackClear: {fileID: 8300000, guid: 1bb31f6f59626c743bed222127060b76, type: 3}
+  trackFail: {fileID: 8300000, guid: ebc232689e8981e489e8f66435d05e0c, type: 3}
+  trackAllPerfect: {fileID: 8300000, guid: c581ea2a2302b2d41832f2bc9089bbe0, type: 3}
+  titleAllPerfect: {fileID: 2530948864800373245, guid: 911aa1f041d189e47833827fecf4c10e, type: 3}
+  titleFullCombo: {fileID: 2075728104243209016, guid: ce4ad419e0faf3b428fc31f0802c2985, type: 3}
+  titleTrackComplete: {fileID: 8805885095704677496, guid: f0db7d662436df0469dd332c58c8859e, type: 3}
+  titleTrackLost: {fileID: -6780201366675995996, guid: 90faba5ee2c48a848a792bfc22e2fac2, type: 3}
+  unlock: {fileID: 8300000, guid: 66930806fdc08964389512e8898e631c, type: 3}

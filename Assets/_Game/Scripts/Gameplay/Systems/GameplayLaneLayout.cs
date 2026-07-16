@@ -20,13 +20,13 @@ public class GameplayLaneLayout : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] private int laneCount = 4;
-    [SerializeField, Range(0.12f, 0.8f)] private float laneAreaWidthRatio = 0.42f;
-    [SerializeField] private float minLaneSpacing = 118f;
-    [SerializeField] private float maxLaneSpacing = 190f;
+    [SerializeField, Range(0.12f, 0.8f)] private float laneAreaWidthRatio = 0.68f;
+    [SerializeField] private float minLaneSpacing = 180f;
+    [SerializeField] private float maxLaneSpacing = 290f;
     [SerializeField, Range(0.05f, 0.48f)] private float hitlineFromBottomRatio = 0.16f;
     [SerializeField] private float hitlineOffsetY = 0f;
     [SerializeField] private float hitlineJudgeDistanceRatio = 0.78f;
-    [SerializeField] private float touchRadiusRatio = 0.95f;
+    [SerializeField] private float touchRadiusRatio = 1.08f;
     [SerializeField, Range(0.5f, 1.4f)] private float laneBottomWidthRatio = 1.08f;
     [SerializeField, Range(0.08f, 0.32f)] private float laneLightWidthRatio = 0.18f;
     [SerializeField, Range(0.75f, 1.25f)] private float hitHintWidthRatio = 1.04f;

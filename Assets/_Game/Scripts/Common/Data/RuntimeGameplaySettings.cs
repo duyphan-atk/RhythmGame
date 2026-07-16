@@ -2,15 +2,25 @@ using UnityEngine;
 
 public static class RuntimeGameplaySettings
 {
+    public enum TapSoundEffectOption
+    {
+        Tap = 0,
+        Arc = 1,
+        Mute = 2
+    }
+
     public const string NoteSpeedKey = "NoteSpeed";
     public const string NoteVolumeKey = "NoteVolume";
     public const string MusicVolumeKey = NoteVolumeKey;
     public const string AudioOffsetKey = "AudioOffset";
     public const string AudioPresetKey = "AudioPreset";
     public const string FrameRateKey = "VisualQuality";
+    public const string TapSoundEffectKey = "TapSoundEffect";
+    public const string TapSoundVolumeKey = "TapSoundVolume";
 
     public const float DefaultNoteSpeedMultiplier = 1f;
     public const int DefaultNoteVolumePercent = 100;
+    public const int DefaultTapSoundVolumePercent = 100;
     public const int DefaultAudioOffsetMs = 0;
     public const int DefaultFrameRateIndex = 0;
     public const int UnlimitedFrameRate = -1;
@@ -46,8 +56,27 @@ public static class RuntimeGameplaySettings
     }
 
     public static float NoteVolume01 => NoteVolumePercent / 100f;
-    public static int MusicVolumePercent { get => NoteVolumePercent; set => NoteVolumePercent = value; }
-    public static float MusicVolume01 => NoteVolume01;
+    public static int MasterVolumePercent
+    {
+        get => NoteVolumePercent;
+        set
+        {
+            NoteVolumePercent = value;
+            ApplyAudioVolumes();
+        }
+    }
+
+    public static float MasterVolume01 => MasterVolumePercent / 100f;
+    public static int MusicVolumePercent { get => MasterVolumePercent; set => MasterVolumePercent = value; }
+    public static float MusicVolume01 => MasterVolume01;
+
+    public static int TapSoundVolumePercent
+    {
+        get => Mathf.Clamp(PlayerPrefs.GetInt(TapSoundVolumeKey, DefaultTapSoundVolumePercent), 0, 100);
+        set => PlayerPrefs.SetInt(TapSoundVolumeKey, Mathf.Clamp(value, 0, 100));
+    }
+
+    public static float TapSoundVolume01 => TapSoundVolumePercent / 100f;
 
     public static int AudioOffsetMs
     {
@@ -63,6 +92,12 @@ public static class RuntimeGameplaySettings
         set => PlayerPrefs.SetInt(AudioPresetKey, value ? 1 : 0);
     }
 
+    public static TapSoundEffectOption TapSoundEffect
+    {
+        get => (TapSoundEffectOption)Mathf.Clamp(PlayerPrefs.GetInt(TapSoundEffectKey, (int)TapSoundEffectOption.Tap), (int)TapSoundEffectOption.Tap, (int)TapSoundEffectOption.Mute);
+        set => PlayerPrefs.SetInt(TapSoundEffectKey, Mathf.Clamp((int)value, (int)TapSoundEffectOption.Tap, (int)TapSoundEffectOption.Mute));
+    }
+
     public static int FrameRateIndex
     {
         get => Mathf.Clamp(PlayerPrefs.GetInt(FrameRateKey, DefaultFrameRateIndex), 0, FrameRateOptions.Length - 1);
@@ -70,6 +105,17 @@ public static class RuntimeGameplaySettings
     }
 
     public static string FrameRateLabel => FrameRateLabels[FrameRateIndex];
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void ApplySavedAudioVolumes()
+    {
+        ApplyAudioVolumes();
+    }
+
+    public static void ApplyAudioVolumes()
+    {
+        AudioListener.volume = MasterVolume01;
+    }
 
     public static void ApplyFrameRate()
     {

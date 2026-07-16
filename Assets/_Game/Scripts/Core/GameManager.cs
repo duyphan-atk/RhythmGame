@@ -33,7 +33,7 @@ public class GameManager : MonoBehaviour, IGameFlowController
         }
 
         // Tải lại Scene hiện tại
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        SceneLoadUtility.ReloadActiveScene();
     }
 
     public void QuitToLobby()
@@ -48,6 +48,6 @@ public class GameManager : MonoBehaviour, IGameFlowController
         }
 
         // Chuyển về Scene chính
-        SceneManager.LoadScene(lobbySceneName);
+        SceneLoadUtility.LoadSceneByName(lobbySceneName);
     }
 }

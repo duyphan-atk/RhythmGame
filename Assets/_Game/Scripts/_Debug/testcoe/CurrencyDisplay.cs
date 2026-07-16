@@ -20,24 +20,24 @@ public class CurrencyDisplay : MonoBehaviour
 
     private void OnEnable()
     {
-        shownCoins = CurrencyManager.Coins;
-        shownDiamonds = CurrencyManager.Diamonds;
+        shownCoins = PlayerWallet.Money;
+        shownDiamonds = PlayerWallet.Diamond;
         SetLabel(coinText, shownCoins);
         SetLabel(diamondText, shownDiamonds);
-        CurrencyManager.OnChanged += Refresh;
+        PlayerWallet.Changed += Refresh;
     }
 
     private void OnDisable()
     {
-        CurrencyManager.OnChanged -= Refresh;
+        PlayerWallet.Changed -= Refresh;
     }
 
     private void Refresh()
     {
         if (coinRoutine != null) StopCoroutine(coinRoutine);
         if (diamondRoutine != null) StopCoroutine(diamondRoutine);
-        coinRoutine = StartCoroutine(CountTo(coinText, shownCoins, CurrencyManager.Coins, true));
-        diamondRoutine = StartCoroutine(CountTo(diamondText, shownDiamonds, CurrencyManager.Diamonds, false));
+        coinRoutine = StartCoroutine(CountTo(coinText, shownCoins, PlayerWallet.Money, true));
+        diamondRoutine = StartCoroutine(CountTo(diamondText, shownDiamonds, PlayerWallet.Diamond, false));
     }
 
     private IEnumerator CountTo(TMP_Text label, int from, int to, bool isCoin)

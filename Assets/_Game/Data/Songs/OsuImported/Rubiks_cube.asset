@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8c8f7d430bcc8bb4f986a97d225050e1, type: 3}
   m_Name: Rubiks_cube
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   _songTitle: "\u30CA\u30CA\u30DB\u30B7\u7BA1\u5F26\u697D\u56E3 feat. \u521D\u97F3
     \u30DF\u30AF - \u30EB\u30FC\u30D3\u30C3\u30AF\u30AD\u30E5\u30FC\u30D6"
   _sceneName: KhoaCuBu
@@ -20,8 +20,10 @@ MonoBehaviour:
   _difficulty: Normal
   songGroupId: "\u30CA\u30CA\u30DB\u30B7\u7BA1\u5F26\u697D\u56E3_feat_\u521D\u97F3_\u30DF\u30AF\u30EB\u30FC\u30D3\u30C3\u30AF\u30AD\u30E5\u30FC\u30D6"
   difficultyLevel: 1
-  unlockType: 0
-  chartFileName: 
+  unlockType: 1
+  moneyPrice: 500
+  diamondPrice: 10
+  chartFileName:
   audioClip: {fileID: 8300000, guid: 5359c64e6e2d63b4bbc198518f12e240, type: 3}
   timelineAsset: {fileID: 0}
   easyChartFileName: Rubiks_cube_Easy

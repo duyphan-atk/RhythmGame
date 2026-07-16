@@ -26,18 +26,36 @@ public static class SceneLoadUtility
         Time.timeScale = 1f;
         AudioListener.pause = false;
 
+        if (!SceneTransitionController.RequestScene(sceneName))
+            Debug.LogWarning("SceneLoadUtility: A scene transition is already in progress.");
+    }
+
+    internal static bool LoadSceneImmediately(string sceneName)
+    {
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+
         if (Application.CanStreamedLevelBeLoaded(sceneName))
         {
             SceneManager.LoadScene(sceneName);
-            return;
+            return true;
         }
 
 #if UNITY_EDITOR
         if (TryLoadSceneInEditor(sceneName))
-            return;
+            return true;
 #endif
 
         Debug.LogError("SceneLoadUtility: Cannot load scene '" + sceneName + "'.");
+        return false;
+    }
+
+    internal static AsyncOperation LoadSceneAsync(string sceneName)
+    {
+        if (!Application.CanStreamedLevelBeLoaded(sceneName))
+            return null;
+
+        return SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
     }
 
 #if UNITY_EDITOR

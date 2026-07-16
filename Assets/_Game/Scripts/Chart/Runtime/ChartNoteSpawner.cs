@@ -60,8 +60,8 @@ public class ChartNoteSpawner : MonoBehaviour
     [SerializeField] private bool logScrollSpeedChanges = true;
 
     [Header("Timing")]
-    [Tooltip("Âm = note trễ hơn nhạc. Dùng để bù khi note đang tới trước beat.")]
-    [SerializeField] private float gameplayTimingOffsetSeconds = -0.08f;
+    [Tooltip("Offset bổ sung theo chart. Mặc định 0; dùng Offset trong Settings để căn máy người chơi.")]
+    [SerializeField] private float gameplayTimingOffsetSeconds = 0f;
     [SerializeField] private float preSpawnTime = 2f;
 
     [Header("Debug")]
@@ -225,7 +225,8 @@ public class ChartNoteSpawner : MonoBehaviour
         {
             float totalOffset = loadedChart.offset + RuntimeGameplaySettings.AudioOffsetSeconds;
             playbackClock.SetOffset(totalOffset);
-            playbackClock.SetVolume(RuntimeGameplaySettings.MusicVolume01);
+            // Master volume is applied at AudioListener level so previews, menus and chart music stay in sync.
+            playbackClock.SetVolume(1f);
         }
 
         Debug.Log($"ChartNoteSpawner: Applied chart offset: {loadedChart.offset} | Settings offset: {RuntimeGameplaySettings.AudioOffsetSeconds} | Gameplay offset: {gameplayTimingOffsetSeconds}");
@@ -594,6 +595,9 @@ public class ChartNoteSpawner : MonoBehaviour
         if (GameObject.Find("RG Runtime Hit Effect Receiver") == null)
             new GameObject("RG Runtime Hit Effect Receiver").AddComponent<HitEffectSpriteReceiver>();
 
+        if (GameObject.Find("RG Runtime Tap Sound Receiver") == null)
+            new GameObject("RG Runtime Tap Sound Receiver").AddComponent<TapSoundEffectReceiver>();
+
         ComboManager runtimeComboManager = EnsureRuntimeComboManager();
 
         EnsureRuntimeComboDisplay(runtimeComboManager);
@@ -625,7 +629,7 @@ public class ChartNoteSpawner : MonoBehaviour
 
     private void EnsureRuntimeComboDisplay(ComboManager comboManager)
     {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
+        Canvas canvas = RuntimeCanvasUtility.FindSceneCanvas();
         if (canvas == null || comboManager == null)
             return;
 

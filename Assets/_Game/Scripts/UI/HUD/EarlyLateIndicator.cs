@@ -228,7 +228,7 @@ public class EarlyLateIndicator : MonoBehaviour
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot     = new Vector2(0.5f, 0.5f);
-        
+
         // Normalize sprite size first so large source images do not dominate the HUD.
         float imgWidth = sprite.rect.width;
         float imgHeight = sprite.rect.height;
@@ -236,7 +236,7 @@ public class EarlyLateIndicator : MonoBehaviour
             ? Mathf.Min(1f, _maxLabelWidth / imgWidth)
             : 1f;
         rect.sizeDelta = new Vector2(imgWidth * widthScale, imgHeight * widthScale);
-        
+
         rect.anchoredPosition = new Vector2(_posX, _anchoredY);
         rect.localScale = Vector3.one * _startScale;
 
@@ -310,7 +310,7 @@ public class EarlyLateIndicator : MonoBehaviour
             _noteManager = FindFirstObjectByType<NoteManager>();
 
         if (_targetCanvas == null)
-            _targetCanvas = FindFirstObjectByType<Canvas>();
+            _targetCanvas = RuntimeCanvasUtility.FindSceneCanvas();
     }
 
     // Easing — đồng nhất với HitEffectSpriteReceiver

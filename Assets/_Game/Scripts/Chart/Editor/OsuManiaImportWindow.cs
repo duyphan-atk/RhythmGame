@@ -25,6 +25,10 @@ public class SongImportWindow : EditorWindow
     private SongData targetSongData;
     private Difficulty difficultySlot = Difficulty.Medium;
     private bool autoDetectDifficulty = true;
+    private bool applyStoreAccessOnOsuImport = true;
+    private SongUnlockType osuUnlockType = SongUnlockType.Free;
+    private int osuMoneyPrice = 500;
+    private int osuDiamondPrice = 10;
 
     private string mp3FilePath = string.Empty;
     private string mp3SongTitle = string.Empty;
@@ -47,6 +51,10 @@ public class SongImportWindow : EditorWindow
     private bool mp3CreateOrUpdateSongData = true;
     private bool mp3PreviewInOpenTool = true;
     private bool mp3PrepareRuntimeSpawner = true;
+    private bool applyStoreAccessOnMp3Import = true;
+    private SongUnlockType mp3UnlockType = SongUnlockType.Free;
+    private int mp3MoneyPrice = 500;
+    private int mp3DiamondPrice = 10;
     private ChartData mp3PreviewChart;
     private GeneratedChartPreview mp3PreviewSummary;
     private Difficulty mp3PreviewDifficulty = Difficulty.Medium;
@@ -97,6 +105,7 @@ public class SongImportWindow : EditorWindow
         autoDetectDifficulty = EditorGUILayout.Toggle("Auto Detect Difficulty", autoDetectDifficulty);
         using (new EditorGUI.DisabledScope(autoDetectDifficulty))
             difficultySlot = (Difficulty)EditorGUILayout.EnumPopup("Difficulty Slot", difficultySlot);
+        DrawOsuStoreAccess();
         previewInOpenTool = EditorGUILayout.Toggle("Preview In Open Tool", previewInOpenTool);
         prepareRuntimeSpawner = EditorGUILayout.Toggle("Prepare Runtime Spawner", prepareRuntimeSpawner);
 
@@ -144,6 +153,7 @@ public class SongImportWindow : EditorWindow
         mp3FlickRatio = EditorGUILayout.Slider("Flick Ratio", mp3FlickRatio, 0f, 0.35f);
         mp3CreateTimelineAsset = EditorGUILayout.Toggle("Create Timeline Asset", mp3CreateTimelineAsset);
         mp3CreateOrUpdateSongData = EditorGUILayout.Toggle("Create/Update SongData Hub", mp3CreateOrUpdateSongData);
+        DrawMp3StoreAccess();
         mp3PreviewInOpenTool = EditorGUILayout.Toggle("Preview In Open Tool", mp3PreviewInOpenTool);
         mp3PrepareRuntimeSpawner = EditorGUILayout.Toggle("Prepare Runtime Spawner", mp3PrepareRuntimeSpawner);
 
@@ -160,6 +170,38 @@ public class SongImportWindow : EditorWindow
 
             if (GUILayout.Button("Generate From MP3", GUILayout.Height(30f)))
                 ImportMp3AutoChart();
+        }
+    }
+
+    private void DrawOsuStoreAccess()
+    {
+        EditorGUILayout.Space(4f);
+        EditorGUILayout.LabelField("Store Access", EditorStyles.boldLabel);
+        applyStoreAccessOnOsuImport = EditorGUILayout.Toggle("Apply Store Access", applyStoreAccessOnOsuImport);
+        using (new EditorGUI.DisabledScope(!applyStoreAccessOnOsuImport))
+        {
+            osuUnlockType = (SongUnlockType)EditorGUILayout.EnumPopup("Availability", osuUnlockType);
+            if (osuUnlockType == SongUnlockType.Purchase)
+            {
+                osuMoneyPrice = Mathf.Max(0, EditorGUILayout.IntField("Money Price", osuMoneyPrice));
+                osuDiamondPrice = Mathf.Max(0, EditorGUILayout.IntField("Diamond Price", osuDiamondPrice));
+            }
+        }
+    }
+
+    private void DrawMp3StoreAccess()
+    {
+        EditorGUILayout.Space(4f);
+        EditorGUILayout.LabelField("Store Access", EditorStyles.boldLabel);
+        applyStoreAccessOnMp3Import = EditorGUILayout.Toggle("Apply Store Access", applyStoreAccessOnMp3Import);
+        using (new EditorGUI.DisabledScope(!applyStoreAccessOnMp3Import))
+        {
+            mp3UnlockType = (SongUnlockType)EditorGUILayout.EnumPopup("Availability", mp3UnlockType);
+            if (mp3UnlockType == SongUnlockType.Purchase)
+            {
+                mp3MoneyPrice = Mathf.Max(0, EditorGUILayout.IntField("Money Price", mp3MoneyPrice));
+                mp3DiamondPrice = Mathf.Max(0, EditorGUILayout.IntField("Diamond Price", mp3DiamondPrice));
+            }
         }
     }
 
@@ -222,7 +264,11 @@ public class SongImportWindow : EditorWindow
                 chartFileName,
                 timeline,
                 selectedDifficulty,
-                targetSongData);
+                targetSongData,
+                applyStoreAccessOnOsuImport,
+                osuUnlockType,
+                osuMoneyPrice,
+                osuDiamondPrice);
         }
 
         SyncOpenScene(result.Chart, importedClip, chartFileName, previewInOpenTool, prepareRuntimeSpawner);
@@ -310,7 +356,11 @@ public class SongImportWindow : EditorWindow
                     generatedChartFileName,
                     timeline,
                     difficulty,
-                    songData != null ? songData : mp3TargetSongData);
+                    songData != null ? songData : mp3TargetSongData,
+                    applyStoreAccessOnMp3Import,
+                    mp3UnlockType,
+                    mp3MoneyPrice,
+                    mp3DiamondPrice);
             }
 
             lastChart = chart;
@@ -508,7 +558,11 @@ public class SongImportWindow : EditorWindow
         string importedChartFileName,
         RhythmTimelineAsset timeline,
         Difficulty difficulty,
-        SongData explicitTarget)
+        SongData explicitTarget,
+        bool applyStoreAccess,
+        SongUnlockType unlockType,
+        int moneyPrice,
+        int diamondPrice)
     {
         EnsureFolder(SongDataFolder);
 
@@ -532,7 +586,12 @@ public class SongImportWindow : EditorWindow
         song._difficulty = "Normal";
         song.songGroupId = safeGroupId;
         song.difficultyLevel = Difficulty.Medium;
-        song.unlockType = SongUnlockType.Free;
+        if (created || applyStoreAccess)
+        {
+            song.unlockType = unlockType;
+            song.moneyPrice = Mathf.Max(0, moneyPrice);
+            song.diamondPrice = Mathf.Max(0, diamondPrice);
+        }
         if (clip != null)
             song.audioClip = clip;
         if (cover != null)

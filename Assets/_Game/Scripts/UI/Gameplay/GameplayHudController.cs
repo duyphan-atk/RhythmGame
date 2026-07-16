@@ -18,12 +18,10 @@ public class GameplayHudController : MonoBehaviour
     [SerializeField] private GameplayPauseController pauseController;
 
     [Header("Health")]
-    [SerializeField, Range(0f, 100f)] private float startHealth = 50f;
+    [SerializeField, Range(0f, 100f)] private float startHealth = 0f;
     [SerializeField, Range(0f, 100f)] private float passHealth = 70f;
-    [SerializeField] private float perfectHealthGain = 1.1f;
-    [SerializeField] private float greatHealthGain = 0.7f;
-    [SerializeField] private float goodHealthGain = 0.25f;
-    [SerializeField] private float missHealthLoss = 4.5f;
+    [SerializeField, Range(1f, 200f)] private float fullPerfectHealthTarget = 164f;
+    [SerializeField, Min(1.1f)] private float missPenaltyMultiplier = 3f;
 
     [Header("Layout")]
     [SerializeField] private Vector2 healthBarPosition = new Vector2(116f, 0f);
@@ -48,6 +46,7 @@ public class GameplayHudController : MonoBehaviour
     private int _miss;
     private int _liveScore;
     private float _health;
+    private bool _playedHpClearSfx;
 
     public int LiveScore => _liveScore;
     public float Health => _health;
@@ -89,7 +88,7 @@ public class GameplayHudController : MonoBehaviour
     private void ResolveReferences()
     {
         if (targetCanvas == null)
-            targetCanvas = FindFirstObjectByType<Canvas>();
+            targetCanvas = RuntimeCanvasUtility.FindSceneCanvas();
         if (noteManager == null)
             noteManager = FindFirstObjectByType<NoteManager>();
         if (chartSpawner == null)
@@ -106,6 +105,7 @@ public class GameplayHudController : MonoBehaviour
         _miss = 0;
         _liveScore = 0;
         _health = Mathf.Clamp(startHealth, 0f, 100f);
+        _playedHpClearSfx = false;
         RefreshHudValues();
     }
 
@@ -119,25 +119,34 @@ public class GameplayHudController : MonoBehaviour
         {
             case HitJudgment.Perfect:
                 _perfect++;
-                _health += perfectHealthGain;
+                _health += GetPerfectHealthGain();
                 break;
             case HitJudgment.Great:
                 _great++;
-                _health += greatHealthGain;
                 break;
             case HitJudgment.Good:
                 _good++;
-                _health += goodHealthGain;
                 break;
             default:
                 _miss++;
-                _health -= missHealthLoss;
+                _health -= GetPerfectHealthGain() * missPenaltyMultiplier;
                 break;
         }
 
         _health = Mathf.Clamp(_health, 0f, 100f);
+        if (!_playedHpClearSfx && _health >= passHealth)
+        {
+            _playedHpClearSfx = true;
+            GameplaySfxPlayer.Play(GameplaySfxCue.HpClear);
+        }
         _liveScore = CalculateLiveScore();
         RefreshHudValues();
+    }
+
+    private float GetPerfectHealthGain()
+    {
+        int totalNotes = Mathf.Max(1, chartSpawner != null ? chartSpawner.TotalNoteCount : _perfect + _great + _good + _miss);
+        return fullPerfectHealthTarget / totalNotes;
     }
 
     private int CalculateLiveScore()
@@ -227,7 +236,7 @@ public class GameplayHudController : MonoBehaviour
         _healthFill = CreatePanel("Health Fill", fillMask, new Color(0.86f, 0.25f, 0.92f, 0.95f));
         Anchor(_healthFill, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(26f, 338f));
 
-        _healthText = CreateText("50", holder, 18f, FontStyles.Bold, TextAlignmentOptions.Center, Color.white, new Vector2(0f, -166f), new Vector2(44f, 26f));
+        _healthText = CreateText("0", holder, 18f, FontStyles.Bold, TextAlignmentOptions.Center, Color.white, new Vector2(0f, -166f), new Vector2(44f, 26f));
     }
 
     private void BuildScorePanel(RectTransform root)

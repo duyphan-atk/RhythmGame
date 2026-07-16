@@ -13,7 +13,8 @@ public class GameplayResultController : MonoBehaviour
     [SerializeField] private ResultPro resultPro;
 
     [Header("Timing")]
-    [SerializeField, Min(0f)] private float showDelaySeconds = 2f;
+    [SerializeField, Min(0f)] private float showDelaySeconds = 5f;
+    [SerializeField, Min(0f)] private float titleVisibleSeconds = 3f;
 
     [Header("Navigation")]
     [SerializeField] private string songSelectSceneName = "MusicSelectionScene";
@@ -90,7 +91,7 @@ public class GameplayResultController : MonoBehaviour
 
     private IEnumerator ShowResultAfterDelay()
     {
-        yield return new WaitForSeconds(showDelaySeconds);
+        yield return new WaitForSecondsRealtime(showDelaySeconds);
 
         if (resultOverlay == null || resultPro == null)
         {
@@ -98,18 +99,40 @@ public class GameplayResultController : MonoBehaviour
             yield break;
         }
 
-        resultOverlay.SetActive(true);
-        WireResultButtons();
         ComboManager resolvedComboManager = ResolveComboManager();
         int maxCombo = resolvedComboManager != null ? resolvedComboManager.MaxCombo : _perfect + _great + _good;
         GameplayHudController hud = GameplayHudController.Instance;
         float health = hud != null ? hud.Health : 0f;
         bool passed = hud != null ? hud.IsPassed : _miss == 0;
         GameplayResultData result = new GameplayResultData(_perfect, _great, _good, _miss, maxCombo, health, passed);
-        ResultSongBackdrop.Apply(resultOverlay, result);
+        yield return ShowEndOfChartTitle(result);
+
+        resultOverlay.SetActive(true);
+        WireResultButtons();
         SongData selectedSong = SelectedSongManager.Instance != null ? SelectedSongManager.Instance.SelectedSong : null;
         SongPlayStats.Save(selectedSong, result);
+        int moneyReward = SongClearRewardService.GrantForClear(selectedSong, result);
+        ResultSongBackdrop.Apply(resultOverlay, result, moneyReward);
         resultPro.Show(result);
+    }
+
+    private IEnumerator ShowEndOfChartTitle(GameplayResultData result)
+    {
+        Canvas canvas = RuntimeCanvasUtility.FindSceneCanvas();
+        if (canvas == null)
+            yield break;
+
+        int totalNotes = Mathf.Max(1, chartSpawner != null ? chartSpawner.TotalNoteCount : _perfect + _great + _good + _miss);
+        EndOfChartTitle title = !result.passed
+            ? EndOfChartTitle.Fail
+            : _perfect == totalNotes && _great == 0 && _good == 0 && _miss == 0
+                ? EndOfChartTitle.AllPerfect
+                : _miss == 0
+                    ? EndOfChartTitle.FullCombo
+                    : EndOfChartTitle.Clear;
+
+        EndOfChartPresentation presentation = EndOfChartPresentation.GetOrCreate(canvas);
+        yield return presentation.Show(title, titleVisibleSeconds);
     }
 
     public void RetryGame()

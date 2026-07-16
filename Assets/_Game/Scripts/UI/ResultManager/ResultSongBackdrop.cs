@@ -9,7 +9,7 @@ public static class ResultSongBackdrop
         Apply(overlay, default);
     }
 
-    public static void Apply(GameObject overlay, GameplayResultData result)
+    public static void Apply(GameObject overlay, GameplayResultData result, int moneyReward = 0)
     {
         SongData song = SelectedSongManager.Instance != null ? SelectedSongManager.Instance.SelectedSong : null;
         if (overlay == null)
@@ -17,7 +17,7 @@ public static class ResultSongBackdrop
 
         RepairLayout(overlay.transform);
         ApplySongInfo(overlay.transform, song);
-        ApplyClearStatus(overlay.transform, result);
+        ApplyClearStatus(overlay.transform, result, moneyReward);
 
         if (song == null || song.PreviewImage == null)
             return;
@@ -32,7 +32,7 @@ public static class ResultSongBackdrop
         }
     }
 
-    private static void ApplyClearStatus(Transform overlay, GameplayResultData result)
+    private static void ApplyClearStatus(Transform overlay, GameplayResultData result, int moneyReward)
     {
         RectTransform statusRect = FindRect(overlay, "RG Clear Status");
         TextMeshProUGUI statusText;
@@ -53,12 +53,14 @@ public static class ResultSongBackdrop
         SetRect(statusRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 86f), new Vector2(260f, 40f));
         bool hasHealth = result.health > 0f || result.passed;
         statusText.text = hasHealth
-            ? (result.passed ? $"CLEAR  {Mathf.RoundToInt(result.health)}%" : $"FAILED  {Mathf.RoundToInt(result.health)}%")
+            ? (result.passed
+                ? $"CLEAR  {Mathf.RoundToInt(result.health)}%" + (moneyReward > 0 ? $"\n+{moneyReward} MONEY" : string.Empty)
+                : $"FAILED  {Mathf.RoundToInt(result.health)}%")
             : string.Empty;
         statusText.fontSize = 26f;
         statusText.fontStyle = FontStyles.Bold;
         statusText.alignment = TextAlignmentOptions.Center;
-        statusText.textWrappingMode = TextWrappingModes.NoWrap;
+        statusText.textWrappingMode = moneyReward > 0 ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
         statusText.overflowMode = TextOverflowModes.Overflow;
         statusText.color = result.passed ? new Color(0.66f, 1f, 0.78f, 1f) : new Color(1f, 0.36f, 0.46f, 1f);
         TmpRuntimeFontFallback.Apply(statusText);

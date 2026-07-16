@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8c8f7d430bcc8bb4f986a97d225050e1, type: 3}
   m_Name: Electric_sister_bitch
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   _songTitle: t+pazolite - Electric "Sister" Bitch
   _sceneName: KhoaCuBu
   _previewImage: {fileID: -4348606837186673230, guid: 16bd724d6916c154bb392a835951f6ef, type: 3}
@@ -19,7 +19,9 @@ MonoBehaviour:
   _difficulty: Normal
   songGroupId: tpazoliteelectric_sister_bitch
   difficultyLevel: 1
-  unlockType: 0
+  unlockType: 1
+  moneyPrice: 800
+  diamondPrice: 15
   chartFileName: chart_tpazolite_electric_sister_bitch
   audioClip: {fileID: 8300000, guid: 2e6bc7b1a87864b458174375ed9d714f, type: 3}
   timelineAsset: {fileID: 0}
