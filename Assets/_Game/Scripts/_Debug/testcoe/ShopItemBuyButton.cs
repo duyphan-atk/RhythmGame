@@ -82,6 +82,8 @@ public class ShopItemBuyButton : MonoBehaviour
 
         OwnedItems.SetOwned(ItemId);
         RefreshOwnedState();
+        if (popup != null) popup.ShowMessage("Unlocked \"" + itemName + "\"!");
+        GameplaySfxPlayer.Play(GameplaySfxCue.Unlock);
         Debug.Log("[Store] Mua thành công \"" + itemName + "\" với giá " + price + " " + currency);
     }
 

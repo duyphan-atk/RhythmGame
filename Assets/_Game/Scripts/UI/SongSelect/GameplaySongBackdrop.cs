@@ -11,7 +11,7 @@ public class GameplaySongBackdrop : MonoBehaviour
 
     public static void Apply()
     {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
+        Canvas canvas = RuntimeCanvasUtility.FindSceneCanvas();
         SongData song = SelectedSongManager.Instance != null ? SelectedSongManager.Instance.SelectedSong : null;
         if (canvas == null || song == null || song.PreviewImage == null)
             return;

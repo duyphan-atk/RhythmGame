@@ -42,9 +42,12 @@ public class SongPreviewButton : MonoBehaviour
     public GameObject lockedOverlay;
     [Tooltip("Hàng nút mua - ẩn khi ĐÃ mua")]
     public GameObject priceRow;
+    [Tooltip("Lớp phủ OWNED trên ảnh bài hát. Tự tạo khi không gán sẵn.")]
+    public GameObject ownedOverlay;
 
     private AudioSource audioSource;
     private Coroutine previewRoutine;
+    private Image coverImage;
 
     // Đảm bảo chỉ 1 bài được phát thử tại 1 thời điểm
     private static SongPreviewButton currentPlaying;
@@ -167,7 +170,7 @@ public class SongPreviewButton : MonoBehaviour
 
         StopPreview(); // đang nghe thử thì dừng lại
 
-        if (OwnedItems.IsOwned(ItemId))
+        if (IsOwned)
         {
             popup.ShowMessage("Bạn đã sở hữu \"" + itemName + "\" rồi!");
             return;
@@ -198,7 +201,10 @@ public class SongPreviewButton : MonoBehaviour
         }
 
         OwnedItems.SetOwned(ItemId);
+        PlayerInventory.SetOwned(ItemId);
         RefreshOwnedState();
+        if (popup != null) popup.ShowMessage("Unlocked \"" + itemName + "\"!");
+        GameplaySfxPlayer.Play(GameplaySfxCue.Unlock);
         Debug.Log("[Store] Mua thành công \"" + itemName + "\" với giá " + price + " " + currency);
     }
 
@@ -224,10 +230,67 @@ public class SongPreviewButton : MonoBehaviour
         }
     }
 
-    private void RefreshOwnedState()
+    public void RefreshOwnedState()
     {
-        bool owned = OwnedItems.IsOwned(ItemId);
+        bool owned = IsOwned;
         if (lockedOverlay != null) lockedOverlay.SetActive(!owned);
         if (priceRow != null) priceRow.SetActive(!owned);
+        EnsureOwnedPresentation();
+        if (ownedOverlay != null) ownedOverlay.SetActive(owned);
+        if (coverImage != null)
+            coverImage.color = owned ? new Color(0.54f, 0.54f, 0.54f, 1f) : Color.white;
+    }
+
+    private void EnsureOwnedPresentation()
+    {
+        if (coverImage == null)
+        {
+            Transform coverTransform = transform.Find("CoverArt ") ?? transform.Find("CoverArt");
+            coverImage = coverTransform != null ? coverTransform.GetComponent<Image>() : null;
+        }
+
+        if (ownedOverlay != null || coverImage == null)
+            return;
+
+        Transform existing = coverImage.transform.Find("Owned Overlay");
+        if (existing != null)
+        {
+            ownedOverlay = existing.gameObject;
+            return;
+        }
+
+        GameObject overlayObject = new GameObject("Owned Overlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
+        overlayRect.SetParent(coverImage.transform, false);
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+        Image overlayImage = overlayObject.GetComponent<Image>();
+        overlayImage.color = new Color(0f, 0f, 0f, 0.38f);
+        overlayImage.raycastTarget = false;
+
+        GameObject labelObject = new GameObject("Owned Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(overlayRect, false);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.font = TMP_Settings.defaultFontAsset;
+        label.text = "OWNED";
+        label.fontSize = 18f;
+        label.fontStyle = FontStyles.Bold;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = new Color(0.54f, 1f, 0.66f, 1f);
+        label.raycastTarget = false;
+
+        ownedOverlay = overlayObject;
+    }
+
+    private bool IsOwned
+    {
+        get { return OwnedItems.IsOwned(ItemId) || PlayerInventory.IsOwned(ItemId); }
     }
 }

@@ -1,12 +1,11 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class BackButton : MonoBehaviour
 {
-    public string targetScene = "StoreMenu";
+    public string targetScene = "StartMenu";
 
     public void GoBack()
     {
-        SceneManager.LoadScene(targetScene);
+        SceneLoadUtility.LoadSceneByName(targetScene);
     }
 }

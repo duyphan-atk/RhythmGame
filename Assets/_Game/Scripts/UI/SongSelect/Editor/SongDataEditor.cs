@@ -22,6 +22,8 @@ public class SongDataEditor : Editor
     private SerializedProperty _songGroupId;
     private SerializedProperty _difficultyLevel;
     private SerializedProperty _unlockType;
+    private SerializedProperty _moneyPrice;
+    private SerializedProperty _diamondPrice;
     private SerializedProperty _chartFileName;
     private SerializedProperty _audioClip;
     private SerializedProperty _legacyTimeline;
@@ -36,6 +38,8 @@ public class SongDataEditor : Editor
         _songGroupId = serializedObject.FindProperty("songGroupId");
         _difficultyLevel = serializedObject.FindProperty("difficultyLevel");
         _unlockType = serializedObject.FindProperty("unlockType");
+        _moneyPrice = serializedObject.FindProperty("moneyPrice");
+        _diamondPrice = serializedObject.FindProperty("diamondPrice");
         _chartFileName = serializedObject.FindProperty("chartFileName");
         _audioClip = serializedObject.FindProperty("audioClip");
         _legacyTimeline = serializedObject.FindProperty("timelineAsset");
@@ -87,6 +91,11 @@ public class SongDataEditor : Editor
         EditorGUILayout.LabelField("Save Identity", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(_songGroupId, new GUIContent("Song Group Id"));
         EditorGUILayout.PropertyField(_unlockType);
+        if ((SongUnlockType)_unlockType.enumValueIndex == SongUnlockType.Purchase)
+        {
+            EditorGUILayout.PropertyField(_moneyPrice, new GUIContent("Money Price"));
+            EditorGUILayout.PropertyField(_diamondPrice, new GUIContent("Diamond Price"));
+        }
 
         using (new EditorGUILayout.HorizontalScope())
         {

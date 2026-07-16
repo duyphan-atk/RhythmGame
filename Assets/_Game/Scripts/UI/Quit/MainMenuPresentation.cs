@@ -16,7 +16,7 @@ public class MainMenuPresentation : MonoBehaviour
         if (canvas == null)
             canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            canvas = FindFirstObjectByType<Canvas>();
+            canvas = RuntimeCanvasUtility.FindSceneCanvas();
         if (canvas == null)
             return;
 

@@ -53,6 +53,10 @@ public class SongListManager : MonoBehaviour
     private TextMeshProUGUI _lastScoreText;
     private TextMeshProUGUI _bestScoreText;
     private TextMeshProUGUI _rankText;
+    private TextMeshProUGUI _moneyText;
+    private TextMeshProUGUI _diamondText;
+    private TextMeshProUGUI _songActionText;
+    private Button _songActionButton;
     private ScrollRect _carouselScrollRect;
     private RectTransform _carouselViewport;
     private RectTransform _carouselContent;
@@ -73,9 +77,22 @@ public class SongListManager : MonoBehaviour
         public TextMeshProUGUI Rank;
         public TextMeshProUGUI BestScore;
         public SongTitleMarquee Marquee;
+        public GameObject LockOverlay;
     }
 
     private void Awake() => Instance = this;
+
+    private void OnEnable()
+    {
+        PlayerWallet.Changed += RefreshStoreUi;
+        PlayerInventory.Changed += RefreshStoreUi;
+    }
+
+    private void OnDisable()
+    {
+        PlayerWallet.Changed -= RefreshStoreUi;
+        PlayerInventory.Changed -= RefreshStoreUi;
+    }
 
     private void Start()
     {
@@ -106,7 +123,7 @@ public class SongListManager : MonoBehaviour
     {
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            canvas = FindFirstObjectByType<Canvas>();
+            canvas = RuntimeCanvasUtility.FindSceneCanvas();
         if (canvas == null)
             return;
 
@@ -129,6 +146,8 @@ public class SongListManager : MonoBehaviour
             SelectRelativeSong(-1);
         else if (WasNextPressedThisFrame())
             SelectRelativeSong(1);
+
+        HandleStoreDebugInput();
     }
 
     public void PopulateList()
@@ -170,6 +189,12 @@ public class SongListManager : MonoBehaviour
         if (song == null)
             return;
 
+        if (!SongUnlockService.IsUnlocked(song))
+        {
+            LockedSongShopPrompt.Show();
+            return;
+        }
+
         // A few older SongSelect scenes do not contain this persistent manager.
         // Create it here so the gameplay scene always receives the selected song.
         SelectedSongManager.EnsureInstance().SetSelectedSong(song, _selectedDifficulty);
@@ -204,7 +229,7 @@ public class SongListManager : MonoBehaviour
     {
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            canvas = FindFirstObjectByType<Canvas>();
+            canvas = RuntimeCanvasUtility.FindSceneCanvas();
         if (canvas == null)
         {
             Debug.LogWarning("SongListManager: no Canvas found.");
@@ -281,6 +306,10 @@ public class SongListManager : MonoBehaviour
             settings.onClick.RemoveAllListeners();
             settings.onClick.AddListener(OpenSettings);
         }
+
+        _moneyText = FirstText(root.Find("Top Bar/Money Badge"));
+        _diamondText = FirstText(root.Find("Top Bar/Diamond Badge"));
+        RefreshStoreUi();
     }
 
     private void BindEditableSongDetail(RectTransform root)
@@ -299,6 +328,13 @@ public class SongListManager : MonoBehaviour
         _lastScoreText = FindText(root, "Last Score Value");
         _bestScoreText = FindText(root, "Best Score Value");
         _rankText = FindText(root, "Best Rank Value");
+        _songActionText = FindText(root, "Song Action Label");
+        _songActionButton = root.Find("Selected Song Detail/Song Action")?.GetComponent<Button>();
+        if (_songActionButton != null)
+        {
+            _songActionButton.onClick.RemoveAllListeners();
+            _songActionButton.onClick.AddListener(PlaySelectedSong);
+        }
 
         BindDifficultyButton(root, Difficulty.Easy, "EASY Difficulty");
         BindDifficultyButton(root, Difficulty.Medium, "NORMAL Difficulty");
@@ -372,16 +408,17 @@ public class SongListManager : MonoBehaviour
         Anchor(settings, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-290f, 0f), new Vector2(48f, 42f));
         settings.GetComponent<Button>().onClick.AddListener(OpenSettings);
 
-        BuildCurrencyBadge(bar, "Money", "0", new Vector2(-183f, 0f), new Color(0.08f, 0.38f, 0.49f, 0.96f));
-        BuildCurrencyBadge(bar, "Diamond", "0", new Vector2(-72f, 0f), new Color(0.43f, 0.21f, 0.66f, 0.96f));
+        _moneyText = BuildCurrencyBadge(bar, "Money", PlayerWallet.Money.ToString(), new Vector2(-183f, 0f), new Color(0.08f, 0.38f, 0.49f, 0.96f));
+        _diamondText = BuildCurrencyBadge(bar, "Diamond", PlayerWallet.Diamond.ToString(), new Vector2(-72f, 0f), new Color(0.43f, 0.21f, 0.66f, 0.96f));
     }
 
-    private static void BuildCurrencyBadge(RectTransform parent, string title, string value, Vector2 position, Color color)
+    private static TextMeshProUGUI BuildCurrencyBadge(RectTransform parent, string title, string value, Vector2 position, Color color)
     {
         RectTransform badge = CreatePanel(title + " Badge", parent, color);
         Anchor(badge, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), position, new Vector2(96f, 42f));
-        CreateText(value, badge, 20, FontStyles.Bold, TextAlignmentOptions.Center, Color.white, new Vector2(0f, 7f), new Vector2(88f, 24f));
+        TextMeshProUGUI valueText = CreateText(value, badge, 20, FontStyles.Bold, TextAlignmentOptions.Center, Color.white, new Vector2(0f, 7f), new Vector2(88f, 24f));
         CreateText(title, badge, 10, FontStyles.Normal, TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.82f), new Vector2(0f, -11f), new Vector2(88f, 18f));
+        return valueText;
     }
 
     private void BuildSongDetail(RectTransform root)
@@ -427,6 +464,14 @@ public class SongListManager : MonoBehaviour
         _bestScoreText.gameObject.name = "Best Score Value";
         _rankText = CreateText("-", score, 32, FontStyles.Bold, TextAlignmentOptions.Center, new Color(1f, 0.55f, 0.25f, 1f), new Vector2(77f, -28f), new Vector2(56f, 54f));
         _rankText.gameObject.name = "Best Rank Value";
+
+        RectTransform action = CreateButton("Song Action", detail, "PLAY", new Color(0.40f, 0.17f, 0.53f, 1f), 18f);
+        Anchor(action, new Vector2(0.43f, 0.02f), new Vector2(0.96f, 0.08f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        _songActionButton = action.GetComponent<Button>();
+        _songActionButton.onClick.AddListener(PlaySelectedSong);
+        _songActionText = FirstText(action);
+        if (_songActionText != null)
+            _songActionText.gameObject.name = "Song Action Label";
     }
 
     private void CreateDifficultyButton(RectTransform parent, Difficulty difficulty, string label, float x)
@@ -498,6 +543,30 @@ public class SongListManager : MonoBehaviour
         }
     }
 
+    private static GameObject CreateStatusOverlay(Transform artHolder, string overlayName, string labelText, Color labelColor, float tiltDegrees)
+    {
+        Transform existing = artHolder.Find(overlayName);
+        if (existing != null)
+            return existing.gameObject;
+
+        RectTransform overlay = CreatePanel(overlayName, artHolder, new Color(0f, 0f, 0f, 0.58f));
+        Stretch(overlay);
+        overlay.GetComponent<Image>().raycastTarget = false;
+
+        TextMeshProUGUI label = CreateText(
+            labelText, overlay, 9f, FontStyles.Bold, TextAlignmentOptions.Center,
+            labelColor, Vector2.zero, Vector2.zero);
+        Stretch(label.rectTransform);
+        label.rectTransform.localEulerAngles = new Vector3(0f, 0f, tiltDegrees);
+        label.raycastTarget = false;
+        return overlay.gameObject;
+    }
+
+    private static GameObject CreateLockOverlay(Transform artHolder)
+    {
+        return CreateStatusOverlay(artHolder, "Lock Overlay", "LOCKED", new Color(1f, 0.25f, 0.30f, 1f), -12f);
+    }
+
     private void CreateSongCard(SongData song, RectTransform parent)
     {
         if (_runtimeCardTemplate != null && Application.isPlaying)
@@ -546,6 +615,7 @@ public class SongListManager : MonoBehaviour
         art.type           = Image.Type.Simple;
         art.preserveAspect = false;
         art.raycastTarget  = false;
+        GameObject lockOverlay = CreateLockOverlay(artHolder);
 
         // ── Difficulty badge — sits on the CARD (not inside mask) ─────────────
         // Positioned over the top-left of the thumbnail area
@@ -641,7 +711,8 @@ public class SongListManager : MonoBehaviour
             Bpm        = bpm,
             Rank       = rank,
             BestScore  = bestScore,
-            Marquee    = marquee
+            Marquee    = marquee,
+            LockOverlay = lockOverlay
         };
     }
 
@@ -685,7 +756,9 @@ public class SongListManager : MonoBehaviour
         title.text = song.SongTitle;
         if (bpm != null)
             bpm.text = GetBpmLabel(song);
-        _cards[song] = new CarouselCard { Rect = card, Background = background, Art = art, Difficulty = difficultyText, Title = title, Bpm = bpm, Rank = rank, BestScore = bestScore, Marquee = marquee };
+        Transform artHolder = art != null ? art.transform.parent : null;
+        GameObject lockOverlay = artHolder != null ? CreateLockOverlay(artHolder) : null;
+        _cards[song] = new CarouselCard { Rect = card, Background = background, Art = art, Difficulty = difficultyText, Title = title, Bpm = bpm, Rank = rank, BestScore = bestScore, Marquee = marquee, LockOverlay = lockOverlay };
     }
 
     private void CreateDefaultRuntimeSongCard(SongData song, RectTransform parent)
@@ -749,14 +822,19 @@ public class SongListManager : MonoBehaviour
             if (detailMarquee != null)
                 detailMarquee.ResetScroll();
         }
+        bool unlocked = SongUnlockService.IsUnlocked(song);
         if (_artistText != null)
-            _artistText.text = "Tap selected song again to start.";
+            _artistText.text = unlocked
+                ? "Tap selected song again to start."
+                : $"Locked. Buy for {SongUnlockService.GetPrice(song, CurrencyType.Money)} Money.";
         if (_bpmText != null)
             _bpmText.text = GetBpmLabel(song);
         if (_previewArt != null)
         {
             _previewArt.sprite = song.PreviewImage;
-            _previewArt.color = song.PreviewImage != null ? Color.white : new Color(0.38f, 0.19f, 0.56f, 1f);
+            _previewArt.color = song.PreviewImage != null
+                ? (unlocked ? Color.white : new Color(0.42f, 0.42f, 0.42f, 1f))
+                : new Color(0.38f, 0.19f, 0.56f, 1f);
         }
         if (_noArtText != null)
             _noArtText.gameObject.SetActive(song.PreviewImage == null);
@@ -773,6 +851,7 @@ public class SongListManager : MonoBehaviour
             _bestScoreText.text = stats.BestScore.ToString("D7");
         if (_rankText != null)
             _rankText.text = string.IsNullOrEmpty(stats.BestRank) ? "-" : stats.BestRank;
+        UpdateSongActionButton(song, unlocked);
         UpdateDifficultyButtons();
     }
 
@@ -845,24 +924,31 @@ public class SongListManager : MonoBehaviour
             float lerpSpeed = Application.isPlaying ? Time.unscaledDeltaTime * 12f : 1f;
             item.Value.Rect.localScale = Vector3.Lerp(item.Value.Rect.localScale, Vector3.one * scale, lerpSpeed);
             item.Value.Rect.anchoredPosition = new Vector2(Mathf.Lerp(item.Value.Rect.anchoredPosition.x, Mathf.Lerp(14f, 4f, t), lerpSpeed), item.Value.Rect.anchoredPosition.y);
-            Color targetColor = item.Key == _selectedSong
-                ? new Color(0.18f, 0.08f, 0.18f, 0.96f)
-                : new Color(0.08f, 0.07f, 0.13f, 0.94f);
+            bool unlocked = SongUnlockService.IsUnlocked(item.Key);
+            Color targetColor = !unlocked
+                ? new Color(0.05f, 0.05f, 0.07f, 0.94f)
+                : item.Key == _selectedSong
+                    ? new Color(0.18f, 0.08f, 0.18f, 0.96f)
+                    : new Color(0.08f, 0.07f, 0.13f, 0.94f);
             if (item.Value.Background != null)
                 item.Value.Background.color = Color.Lerp(item.Value.Background.color, targetColor, lerpSpeed);
+            if (item.Value.Art != null)
+                item.Value.Art.color = unlocked ? Color.white : new Color(0.42f, 0.42f, 0.42f, 1f);
+            if (item.Value.LockOverlay != null)
+                item.Value.LockOverlay.SetActive(!unlocked);
             Difficulty displayDifficulty = item.Key == _selectedSong ? _selectedDifficulty : GetPreferredDifficulty(item.Key);
             SongPlayStats stats = SongPlayStats.Load(item.Key, displayDifficulty);
             if (item.Value.Difficulty != null)
             {
-                item.Value.Difficulty.text = GetDifficultyLabel(displayDifficulty).ToUpperInvariant();
+                item.Value.Difficulty.text = unlocked ? GetDifficultyLabel(displayDifficulty).ToUpperInvariant() : "LOCKED";
                 Image difficultyImage = item.Value.Difficulty.transform.parent.GetComponent<Image>();
                 if (difficultyImage != null)
-                    difficultyImage.color = DifficultyColor(displayDifficulty);
+                    difficultyImage.color = unlocked ? DifficultyColor(displayDifficulty) : new Color(0.18f, 0.18f, 0.22f, 1f);
             }
             if (item.Value.Rank != null)
-                item.Value.Rank.text = string.IsNullOrEmpty(stats.BestRank) ? "-" : stats.BestRank;
+                item.Value.Rank.text = unlocked ? (string.IsNullOrEmpty(stats.BestRank) ? "-" : stats.BestRank) : "$";
             if (item.Value.BestScore != null)
-                item.Value.BestScore.text = stats.BestScore.ToString("D7");
+                item.Value.BestScore.text = unlocked ? stats.BestScore.ToString("D7") : SongUnlockService.GetPrice(item.Key, CurrencyType.Money).ToString();
         }
     }
 
@@ -891,6 +977,67 @@ public class SongListManager : MonoBehaviour
         _previewAudioSource.volume = RuntimeGameplaySettings.MusicVolume01;
         _previewAudioSource.time = Mathf.Clamp(previewStartSeconds, 0f, Mathf.Max(0f, song.audioClip.length - 0.05f));
         _previewAudioSource.Play();
+    }
+
+    private void RefreshStoreUi()
+    {
+        if (_moneyText != null)
+            _moneyText.text = PlayerWallet.Money.ToString();
+        if (_diamondText != null)
+            _diamondText.text = PlayerWallet.Diamond.ToString();
+
+        if (_selectedSong != null)
+            ShowSongDetails(_selectedSong);
+
+        UpdateCarousel();
+    }
+
+    private void UpdateSongActionButton(SongData song, bool unlocked)
+    {
+        if (_songActionText == null)
+            return;
+
+        _songActionText.text = unlocked
+            ? "PLAY"
+            : "LOCKED - VISIT SHOP";
+    }
+
+    private void TryPurchaseSelectedSong(CurrencyType currency)
+    {
+        if (_selectedSong == null)
+            return;
+
+        bool success = SongUnlockService.TryPurchase(_selectedSong, currency, out string message);
+        Debug.Log("[Store] " + message);
+
+        RefreshStoreUi();
+
+        if (success)
+        {
+            GameplaySfxPlayer.Play(GameplaySfxCue.Unlock);
+            CenterSelectedCard();
+        }
+    }
+
+    private void HandleStoreDebugInput()
+    {
+        if (WasAddMoneyPressedThisFrame())
+        {
+            PlayerWallet.Add(CurrencyType.Money, 1000);
+            Debug.Log("[Store Test] Added 1000 Money. Current Money: " + PlayerWallet.Money);
+        }
+
+        if (WasAddDiamondPressedThisFrame())
+        {
+            PlayerWallet.Add(CurrencyType.Diamond, 50);
+            Debug.Log("[Store Test] Added 50 Diamond. Current Diamond: " + PlayerWallet.Diamond);
+        }
+
+        if (WasResetWalletPressedThisFrame())
+        {
+            PlayerWallet.ResetForTesting();
+            Debug.Log("[Store Test] Reset local wallet.");
+        }
     }
 
     private static UIManager FindSettingsManager()
@@ -1242,6 +1389,33 @@ public class SongListManager : MonoBehaviour
         return Keyboard.current != null && Keyboard.current.rightArrowKey.wasPressedThisFrame;
 #else
         return Input.GetKeyDown(KeyCode.RightArrow);
+#endif
+    }
+
+    private static bool WasAddMoneyPressedThisFrame()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.f6Key.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.F6);
+#endif
+    }
+
+    private static bool WasAddDiamondPressedThisFrame()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.f7Key.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.F7);
+#endif
+    }
+
+    private static bool WasResetWalletPressedThisFrame()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.F8);
 #endif
     }
 

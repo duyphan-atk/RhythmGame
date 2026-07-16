@@ -25,6 +25,8 @@ public class UIManager : MonoBehaviour
     private const int SettingsOverlaySortingOrder = 1000;
     private RectTransform noteSpeedPreviewMarker;
     private TextMeshProUGUI noteSpeedPreviewValue;
+    private TextMeshProUGUI tapSoundEffectText;
+    private TextMeshProUGUI tapSoundVolumeText;
 
     [Header("Settings Tabs Content")]
     public GameObject contentAudio;
@@ -83,9 +85,12 @@ public class UIManager : MonoBehaviour
     private void Start()
     {
         LoadSettings();
+        RuntimeGameplaySettings.ApplyAudioVolumes();
         RuntimeGameplaySettings.ApplyFrameRate();
         NormalizeOffsetTextLayout();
         BuildNoteSpeedPreview();
+        ConfigureMasterVolumeSetting();
+        ConfigureTapSoundSetting();
         if (settingsOverlayOnly)
         {
             TogglePanel(false, false, false, false);
@@ -194,9 +199,163 @@ public class UIManager : MonoBehaviour
     public void ToggleInviteNotif() { isInviteNotifEnabled = !isInviteNotifEnabled; textInviteNotif.text = isInviteNotifEnabled ? "Enabled" : "Disabled"; }
 
     // --- LOGIC AUDIO ---
-    public void ChangeVolume(int amount) { currentVolume = Mathf.Clamp(currentVolume + amount, 0, 100); if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%"; RuntimeGameplaySettings.MusicVolumePercent = currentVolume; RuntimeGameplaySettings.Save(); }
+    public void ChangeVolume(int amount) { currentVolume = Mathf.Clamp(currentVolume + amount, 0, 100); if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%"; RuntimeGameplaySettings.MasterVolumePercent = currentVolume; RuntimeGameplaySettings.Save(); }
     public void ChangeAudioOffset(int amount) { currentOffset = Mathf.Clamp(currentOffset + amount, -500, 1000); if (textOffset != null) { textOffset.text = currentOffset.ToString(); NormalizeOffsetTextLayout(); } RuntimeGameplaySettings.AudioOffsetMs = currentOffset; RuntimeGameplaySettings.Save(); }
-    public void ToggleAudioPreset() { isHeadphonesPreset = !isHeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker"; RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset; RuntimeGameplaySettings.Save(); }
+    public void ToggleAudioPreset() { CycleTapSoundEffect(); }
+    public void CycleTapSoundEffect()
+    {
+        int next = ((int)RuntimeGameplaySettings.TapSoundEffect + 1) % 3;
+        RuntimeGameplaySettings.TapSoundEffect = (RuntimeGameplaySettings.TapSoundEffectOption)next;
+        RuntimeGameplaySettings.Save();
+        RefreshTapSoundEffectText();
+        GameplaySfxPlayer.PreviewTapSound();
+    }
+
+    public void PreviewTapSoundEffect()
+    {
+        GameplaySfxPlayer.PreviewTapSound();
+    }
+
+    public void ChangeTapSoundVolume(int amount)
+    {
+        RuntimeGameplaySettings.TapSoundVolumePercent = Mathf.Clamp(RuntimeGameplaySettings.TapSoundVolumePercent + amount, 0, 100);
+        RuntimeGameplaySettings.Save();
+        RefreshTapSoundVolumeText();
+        GameplaySfxPlayer.PreviewTapSound();
+    }
+
+    private void ConfigureMasterVolumeSetting()
+    {
+        if (contentAudio == null)
+            return;
+
+        TextMeshProUGUI title = contentAudio.transform.Find("Item_NoteVolume/Title")?.GetComponent<TextMeshProUGUI>();
+        if (title != null)
+        {
+            title.text = "MASTER VOLUME";
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            title.overflowMode = TextOverflowModes.Overflow;
+            title.enableAutoSizing = true;
+            title.fontSizeMin = 20f;
+            title.fontSizeMax = 36f;
+        }
+    }
+
+    private void ConfigureTapSoundSetting()
+    {
+        if (contentAudio == null)
+            return;
+
+        Transform item = contentAudio.transform.Find("Item_AudioPreset");
+        if (item == null)
+            return;
+
+        Button soundButton = item.GetComponentInChildren<Button>(true);
+        if (soundButton == null)
+            return;
+
+        TextMeshProUGUI title = item.Find("Title")?.GetComponent<TextMeshProUGUI>();
+        if (title != null)
+            title.text = "TAPSOUND EF";
+
+        soundButton.name = "Btn_TapSoundEffect";
+        soundButton.onClick.RemoveAllListeners();
+        soundButton.onClick.AddListener(CycleTapSoundEffect);
+        tapSoundEffectText = soundButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        RefreshTapSoundEffectText();
+        BuildTapSoundVolumeControls(item, soundButton);
+    }
+
+    private void RefreshTapSoundEffectText()
+    {
+        if (tapSoundEffectText == null)
+            return;
+
+        tapSoundEffectText.text = RuntimeGameplaySettings.TapSoundEffect.ToString().ToUpperInvariant();
+    }
+
+    private void BuildTapSoundVolumeControls(Transform item, Button templateButton)
+    {
+        Transform existing = item.Find("Tap Volume Controls");
+        if (existing != null)
+        {
+            tapSoundVolumeText = existing.Find("Value")?.GetComponent<TextMeshProUGUI>();
+            RefreshTapSoundVolumeText();
+            return;
+        }
+
+        GameObject controls = new GameObject("Tap Volume Controls", typeof(RectTransform), typeof(LayoutElement));
+        controls.transform.SetParent(item, false);
+        LayoutElement layoutElement = controls.GetComponent<LayoutElement>();
+        layoutElement.ignoreLayout = true;
+
+        RectTransform controlsRect = controls.GetComponent<RectTransform>();
+        controlsRect.anchorMin = controlsRect.anchorMax = new Vector2(0.5f, 0.5f);
+        controlsRect.pivot = new Vector2(0.5f, 0.5f);
+        controlsRect.anchoredPosition = new Vector2(0f, -28f);
+        controlsRect.sizeDelta = new Vector2(270f, 96f);
+
+        TMP_FontAsset font = tapSoundEffectText != null ? tapSoundEffectText.font : TMP_Settings.defaultFontAsset;
+        CreateTapVolumeText("Label", controls.transform, "TAP VOLUME", new Vector2(0f, 28f), new Vector2(220f, 28f), font, 18f);
+        CreateTapVolumeButton("Decrease", controls.transform, "-", new Vector2(-92f, -17f), templateButton, () => ChangeTapSoundVolume(-10));
+        tapSoundVolumeText = CreateTapVolumeText("Value", controls.transform, string.Empty, new Vector2(0f, -17f), new Vector2(86f, 38f), font, 22f);
+        CreateTapVolumeButton("Increase", controls.transform, "+", new Vector2(92f, -17f), templateButton, () => ChangeTapSoundVolume(10));
+        RefreshTapSoundVolumeText();
+    }
+
+    private TextMeshProUGUI CreateTapVolumeText(string objectName, Transform parent, string value, Vector2 position, Vector2 size, TMP_FontAsset font, float fontSize)
+    {
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+        textObject.transform.SetParent(parent, false);
+        textObject.GetComponent<LayoutElement>().ignoreLayout = true;
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        text.font = font;
+        text.fontSize = fontSize;
+        text.alignment = TextAlignmentOptions.Center;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.color = Color.white;
+        text.text = value;
+        return text;
+    }
+
+    private void CreateTapVolumeButton(string objectName, Transform parent, string label, Vector2 position, Button templateButton, UnityEngine.Events.UnityAction callback)
+    {
+        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+        buttonObject.GetComponent<LayoutElement>().ignoreLayout = true;
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(52f, 38f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.sprite = templateButton.image.sprite;
+        image.type = templateButton.image.type;
+        image.color = templateButton.image.color;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = templateButton.transition;
+        button.colors = templateButton.colors;
+        button.onClick.AddListener(callback);
+
+        TMP_FontAsset font = tapSoundEffectText != null ? tapSoundEffectText.font : TMP_Settings.defaultFontAsset;
+        CreateTapVolumeText("Text", buttonObject.transform, label, Vector2.zero, new Vector2(52f, 38f), font, 24f);
+    }
+
+    private void RefreshTapSoundVolumeText()
+    {
+        if (tapSoundVolumeText != null)
+            tapSoundVolumeText.text = RuntimeGameplaySettings.TapSoundVolumePercent + "%";
+    }
 
     // --- LOGIC VISUAL ---
     public void ToggleGraphicsQuality()
@@ -225,7 +384,7 @@ public class UIManager : MonoBehaviour
         PlayerPrefs.SetInt("PureLateEarly", isPureLateEarlyEnabled ? 1 : 0);
         PlayerPrefs.SetInt("ShowPotential", isShowPotentialEnabled ? 1 : 0);
         PlayerPrefs.SetInt("InviteNotif", isInviteNotifEnabled ? 1 : 0);
-        RuntimeGameplaySettings.MusicVolumePercent = currentVolume;
+        RuntimeGameplaySettings.MasterVolumePercent = currentVolume;
         RuntimeGameplaySettings.AudioOffsetMs = currentOffset;
         RuntimeGameplaySettings.HeadphonesPreset = isHeadphonesPreset;
         // Lưu dữ liệu Visual
@@ -248,7 +407,7 @@ public class UIManager : MonoBehaviour
         isPureLateEarlyEnabled = PlayerPrefs.GetInt("PureLateEarly", 1) == 1; if (textPureLateEarly != null) textPureLateEarly.text = isPureLateEarlyEnabled ? "Enabled" : "Disabled";
         isShowPotentialEnabled = PlayerPrefs.GetInt("ShowPotential", 1) == 1; if (textShowPotential != null) textShowPotential.text = isShowPotentialEnabled ? "Enabled" : "Disabled";
         isInviteNotifEnabled = PlayerPrefs.GetInt("InviteNotif", 1) == 1; if (textInviteNotif != null) textInviteNotif.text = isInviteNotifEnabled ? "Enabled" : "Disabled";
-        currentVolume = RuntimeGameplaySettings.MusicVolumePercent; if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%";
+        currentVolume = RuntimeGameplaySettings.MasterVolumePercent; if (textNoteVolume != null) textNoteVolume.text = currentVolume + "%";
         currentOffset = RuntimeGameplaySettings.AudioOffsetMs; if (textOffset != null) textOffset.text = currentOffset.ToString();
         isHeadphonesPreset = RuntimeGameplaySettings.HeadphonesPreset; if (textAudioPreset != null) textAudioPreset.text = isHeadphonesPreset ? "Headphones" : "Speaker";
         // Tải dữ liệu Visual

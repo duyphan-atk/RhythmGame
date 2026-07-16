@@ -33,7 +33,7 @@ public class GameplayPauseController : MonoBehaviour
             pauseButtonPosition = new Vector2(92f, -44f);
 
         if (targetCanvas == null)
-            targetCanvas = FindFirstObjectByType<Canvas>();
+            targetCanvas = RuntimeCanvasUtility.FindSceneCanvas();
 
         if (playbackClock == null)
             playbackClock = FindFirstObjectByType<ChartPlaybackClock>();

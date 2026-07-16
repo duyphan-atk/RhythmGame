@@ -65,7 +65,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
         RestoreMissingSprites();
 
         if (targetCanvas == null)
-            targetCanvas = FindFirstObjectByType<Canvas>();
+            targetCanvas = RuntimeCanvasUtility.FindSceneCanvas();
 
         if (noteManager == null)
             noteManager = FindFirstObjectByType<NoteManager>();
@@ -106,7 +106,7 @@ public class HitEffectSpriteReceiver : MonoBehaviour, INoteResultReceiver
     private void EnsureReferences()
     {
         if (targetCanvas == null)
-            targetCanvas = FindFirstObjectByType<Canvas>();
+            targetCanvas = RuntimeCanvasUtility.FindSceneCanvas();
 
         if (noteManager == null)
             noteManager = FindFirstObjectByType<NoteManager>();

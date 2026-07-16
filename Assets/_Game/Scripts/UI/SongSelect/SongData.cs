@@ -30,6 +30,15 @@ public class SongData : ScriptableObject
         "Purchase: Cần mua trong Shop → mở Easy + Medium.")]
     public SongUnlockType unlockType = SongUnlockType.Free;
 
+    [Header("Store")]
+    [Min(0)]
+    [Tooltip("Giá mua bài bằng Money. Money kiếm qua clear bài / nhiệm vụ sau này.")]
+    public int moneyPrice = 500;
+
+    [Min(0)]
+    [Tooltip("Giá mua bài bằng Diamond. Diamond sẽ đến từ nạp web sau này.")]
+    public int diamondPrice = 10;
+
     [Header("Chart Integration")]
     [Tooltip("Tên file JSON chart không kèm .json. Nếu trống sẽ tự tính từ AudioClip để giữ tương thích SongData cũ.")]
     public string chartFileName;

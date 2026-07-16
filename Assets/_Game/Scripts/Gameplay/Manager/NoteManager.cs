@@ -32,7 +32,8 @@ public class NoteManager : MonoBehaviour
     [SerializeField] private float hitlineY = -330f;
     [SerializeField] private float hitlineJudgeDistance = 150f;
     [SerializeField] private bool useLaneLayoutHitbox = true;
-    [SerializeField, Range(0.25f, 1.25f)] private float laneHitboxWidthRatio = 0.95f;
+    [SerializeField, Range(0.25f, 1.25f)] private float laneHitboxWidthRatio = 1.08f;
+    [SerializeField] private bool recoverUnboundTouchDuringHold = true;
 
     [Header("PC Test Input")]
     [Tooltip("Cho phép giả lập 4 lane bằng bàn phím trong Play Mode.")]
@@ -252,10 +253,12 @@ public class NoteManager : MonoBehaviour
                     break;
 
                 case UnityEngine.TouchPhase.Moved:
+                    TryRecoverUnboundTouch(pointer);
                     PointerMove(pointer);
                     break;
 
                 case UnityEngine.TouchPhase.Stationary:
+                    TryRecoverUnboundTouch(pointer);
                     PointerStationary(pointer);
                     break;
 
@@ -435,16 +438,23 @@ public class NoteManager : MonoBehaviour
 
     private void PointerBegin(NotePointer pointer)
     {
+        TryPointerBegin(pointer, true);
+    }
+
+    private bool TryPointerBegin(NotePointer pointer, bool punishTooEarly)
+    {
         NoteBase note = FindBestNote(pointer.position);
 
         if (note == null)
         {
-            TryPunishTooEarlyInput(pointer.position);
-            return;
+            if (punishTooEarly)
+                TryPunishTooEarlyInput(pointer.position);
+
+            return false;
         }
 
         if (!note.CanReceivePointer())
-            return;
+            return false;
 
         HitJudgment judgment = judgmentWindow.Judge(
             currentTime,
@@ -455,7 +465,7 @@ public class NoteManager : MonoBehaviour
         if (judgment == HitJudgment.Miss)
         {
             note.ForceMiss(deltaMs);
-            return;
+            return false;
         }
 
         note.SetJudgment(judgment, deltaMs);
@@ -469,6 +479,8 @@ public class NoteManager : MonoBehaviour
         {
             fingerToNote.Remove(pointer.fingerId);
         }
+
+        return true;
     }
 
     private void PointerMove(NotePointer pointer)
@@ -586,6 +598,17 @@ public class NoteManager : MonoBehaviour
         }
 
         return bestNote;
+    }
+
+    private void TryRecoverUnboundTouch(NotePointer pointer)
+    {
+        if (!recoverUnboundTouchDuringHold)
+            return;
+
+        if (fingerToNote.ContainsKey(pointer.fingerId))
+            return;
+
+        TryPointerBegin(pointer, false);
     }
 
     private bool TryPunishTooEarlyInput(Vector2 screenPosition)
