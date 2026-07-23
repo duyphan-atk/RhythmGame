@@ -29,12 +29,15 @@ public class AuthManager : MonoBehaviour
     [Header("--- Global Message Text ---")]
     public TextMeshProUGUI messageText;
 
-    // ???ng d?n k?t n?i tr?c ti?p t?i c?ng HTTP th??ng, lo?i b? hoàn toàn l?i ng?t k?t n?i HTTPS
+    // ???ng d?n k?t n?i tr?c ti?p t?i c?ng HTTP th??ng, lo?i b? hoï¿½n toï¿½n l?i ng?t k?t n?i HTTPS
     private string baseURL = "http://localhost:5231/api/auth/";
 
-    private void Start()
+private void Start()
     {
-        SwitchToLoginPanel();
+        if (SceneManager.GetActiveScene().name == "Register")
+            SwitchToRegisterPanel();
+        else
+            SwitchToLoginPanel();
     }
 
     public void SwitchToRegisterPanel()
@@ -55,14 +58,61 @@ public class AuthManager : MonoBehaviour
 
     public void Register()
     {
+        if (!ValidateRegisterInputs()) return;
         StartCoroutine(RegisterCoroutine());
+    }
+
+    bool ValidateRegisterInputs()
+    {
+        if (registerUsername == null || registerEmail == null || registerPassword == null)
+        {
+            ShowError("Register form is not configured.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(registerUsername.text))
+        {
+            ShowError("Please enter a username.");
+            registerUsername.Select();
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(registerEmail.text))
+        {
+            ShowError("Please enter your email.");
+            registerEmail.Select();
+            return false;
+        }
+
+        if (!registerEmail.text.Contains("@"))
+        {
+            ShowError("Please enter a valid email.");
+            registerEmail.Select();
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(registerPassword.text))
+        {
+            ShowError("Please enter a password.");
+            registerPassword.Select();
+            return false;
+        }
+
+        if (registerPassword.text.Length < 6)
+        {
+            ShowError("Password must be at least 6 characters.");
+            registerPassword.Select();
+            return false;
+        }
+
+        return true;
     }
 
     IEnumerator RegisterCoroutine()
     {
         ShowNormal("Registering account...");
 
-        // Gán ?úng tên bi?n vi?t HOA ?? .NET Core nh?n d?ng ???c
+        // Gï¿½n ?ï¿½ng tï¿½n bi?n vi?t HOA ?? .NET Core nh?n d?ng ???c
         RegisterData data = new RegisterData
         {
             Username = registerUsername.text,
@@ -87,7 +137,33 @@ public class AuthManager : MonoBehaviour
 
     public void Login()
     {
+        if (!ValidateLoginInputs()) return;
         StartCoroutine(LoginCoroutine());
+    }
+
+    bool ValidateLoginInputs()
+    {
+        if (loginUsername == null || loginPassword == null)
+        {
+            ShowError("Login form is not configured.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(loginUsername.text))
+        {
+            ShowError("Please enter your username.");
+            loginUsername.Select();
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(loginPassword.text))
+        {
+            ShowError("Please enter your password.");
+            loginPassword.Select();
+            return false;
+        }
+
+        return true;
     }
 
     IEnumerator LoginCoroutine()
@@ -144,14 +220,14 @@ public class AuthManager : MonoBehaviour
         }
     }
 
-    void ShowNormal(string msg) { messageText.text = msg; messageText.color = Color.white; }
-    void ShowSuccess(string msg) { messageText.text = msg; messageText.color = Color.green; }
-    void ShowError(string msg) { messageText.text = msg; messageText.color = Color.red; }
-    void ClearMessage() { messageText.text = ""; }
+    void ShowNormal(string msg) { if (messageText == null) return; messageText.text = msg; messageText.color = Color.white; }
+    void ShowSuccess(string msg) { if (messageText == null) return; messageText.text = msg; messageText.color = Color.green; }
+    void ShowError(string msg) { if (messageText == null) return; messageText.text = msg; messageText.color = Color.red; }
+    void ClearMessage() { if (messageText != null) messageText.text = ""; }
     void LoadGameplayScene() { SceneManager.LoadScene("MainMenu"); }
 }
 
-// ================= CÁC L?P ??I T??NG DATA CHUY?N ??I JSON =================
+// ================= Cï¿½C L?P ??I T??NG DATA CHUY?N ??I JSON =================
 [System.Serializable]
 public class RegisterData
 {
